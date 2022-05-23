@@ -1,0 +1,67 @@
+# [Created by task 2.5.1 5/9/2022 09:48:20]
+# Taskwarrior program configuration file.
+# For more documentation, see http://taskwarrior.org or try 'man task', 'man task-color',
+# 'man task-sync' or 'man taskrc'
+
+# Here is an example of entries that use the default, override and blank values
+#   variable=foo   -- By specifying a value, this overrides the default
+#   variable=      -- By specifying no value, this means no default
+#   #variable=foo  -- By commenting out the line, or deleting it, this uses the default
+
+# Use the command 'task show' to see all defaults and overrides
+
+news.version=2.6.0
+
+# Files
+data.location=~/.local/share/task
+hooks.location=~/.config/task/hooks
+
+weekstart=Monday
+
+# Color theme (uncomment one to use)
+#include /usr/share/taskwarrior/light-16.theme
+#include /usr/share/taskwarrior/light-256.theme
+# include /usr/local/share/doc/task/rc/dark-16.theme
+# include /usr/local/share/doc/task/rc/dark-256.theme
+include light-256.theme
+# include dark-256.theme
+# include dark-red-256.theme
+# include /usr/local/share/doc/task/rc/dark-red-256.theme
+#include /usr/share/taskwarrior/dark-green-256.theme
+#include /usr/share/taskwarrior/dark-blue-256.theme
+#include /usr/share/taskwarrior/dark-violets-256.theme
+#include /usr/share/taskwarrior/dark-yellow-green.theme
+#include /usr/share/taskwarrior/dark-gray-256.theme
+#include /usr/share/taskwarrior/dark-gray-blue-256.theme
+#include /usr/share/taskwarrior/solarized-dark-256.theme
+#include /usr/share/taskwarrior/solarized-light-256.theme
+#include /usr/share/taskwarrior/no-color.theme
+
+# project.TC+priority.L(1.8) > project.TI+priority.H(6.0)
+urgency.user.project.TC.coefficient=6.1
+urgency.user.project.TW.coefficient=6.1
+urgency.user.project.TI.coefficient=1.7
+urgency.user.project.TL.coefficient=1.7
+urgency.due.coefficient=8
+urgency.tags.coefficient=0
+
+uda.timeest.type=duration
+uda.timeest.label=Time Estimated
+uda.timeest.values=''
+uda.timespent.type=duration
+uda.timespent.label=Time Spent
+uda.timespent.values=''
+uda.timediff.type=duration
+uda.timediff.label=Time Difference
+uda.timediff.values=''
+report.list.columns=id,entry.age,description,priority,due,timeest,timespent,timediff,tags,project,recur.indicator,scheduled.countdown,until.remaining,urgency
+report.list.labels=ID,Age,Description,P,Due,TimeEst,TimeSpent,TimeDiff,Tags,Project,R,Sch,Until,Urg
+report.list.sort=urgency-,due+,project+/
+report.completed.columns=uuid.short,description.count,entry,end,entry.age,project,priority,due,timeest,timespent,timediff,tags,recur.indicator
+report.completed.labels=UUID,Description,Created,Completed,Age,Project,P,Due,TimeEst,TimeSpent,TimeDiff,Tags,R
+
+report.time.description=Time spent in the task
+report.time.columns=id,uuid.short,description,timespent,project,tags,entry
+report.time.labels=ID,UUID,Description,TimeSpent,Project,Tags,Create
+report.time.sort=timespent-
+report.time.filter=entry:today

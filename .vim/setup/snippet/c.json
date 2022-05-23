@@ -1,0 +1,7 @@
+{
+  "main": {
+    "prefix": ["main"],
+    "body": ["int main(int argc, char** argv) {", "\t$0", "}"],
+    "description": "A for loop."
+  }
+}

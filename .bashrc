@@ -1,0 +1,92 @@
+HERE="${BASH_SOURCE[0]%/*}"
+
+# EDITOR
+set -o vi
+export EDITOR=/usr/bin/nvim
+# spell checker
+shopt -s cdspell
+# cd default
+compopt -o bashdefault cd
+
+# history
+HISTFILESIZE=400000000
+HISTSIZE=10000
+PROMPT_COMMAND="history -a"
+# PROMPT_COMMAND="${PROMPT_COMMAND:-:} ; history -a"
+shopt -s histappend
+# awk 'NR==FNR &amp;&amp; !/^#/{lines[$0]=FNR;next} lines[$0]==FNR' "$HISTFILE" "$HISTFILE" &gt; "$HISTFILE.compressed" &amp;&amp; mv "$HISTFILE.compressed" "$HISTFILE"
+
+##!/bin/bash
+#umask 077
+#max_lines=10000
+#linecount=$(wc -l &lt; ~/.bash_history) if (($linecount &gt; $max_lines)); then
+#  prune_lines=$(($linecount - $max_lines))
+#  head -$prune_lines ~/.bash_history &gt;&gt; ~/.bash_history.archive \
+#    &amp;&amp; sed -e "1,${prune_lines}d"  ~/.bash_history &gt; ~/.bash_history.tmp$$ \
+#    &amp;&amp; mv ~/.bash_history.tmp$$ ~/.bash_history
+#fi
+
+# git
+source /usr/share/bash-completion/completions/git
+# fzf
+# source "${HERE}/fzf.bash"
+# forgit
+# source "${HERE}/forgit/forgit.plugin.zsh"
+# git stat all
+function gitstat {
+   git log --format='%aN' | sort -u | while read name; do echo -en "$name\t"; git log --author="$name" --pretty=tformat: --numstat | awk '{ add += $1; subs += $2; loc += $1 - $2 } END { printf "added lines: %s, removed lines: %s, total lines: %s\n", add, subs, loc }' -; done
+}
+# git stat who
+function gitstatwho {
+    git log --author=$1 --pretty=tformat: --numstat | awk '{ add += $1; subs += $2; loc += $1 - $2 } END { printf "added lines: %s, removed lines: %s, total lines: %s\n", add, subs, loc }'
+}
+# git remove gone
+function grg {
+    git fetch -p && for branch in `git branch -vv | grep ': gone]' | awk '{print $1}'`; do git branch -D $branch; done
+}
+# git log deleted files
+function gld {
+    git log --diff-filter=D --summary
+}
+# git ignore effect right now
+function gin {
+    git rm -r --cac . && git add .
+}
+
+# git auto add submodule
+function gitshowsubmodule {
+    for x in $(find . -type d) ; do if [ -d "${x}/.git" ] ; then cd "${x}" ; origin="$(git config --get remote.origin.url)" ; cd - 1>/dev/null; echo git submodule add "${origin}" "${x}" ; fi ; done
+}
+function gitaddsubmodule {
+    for x in $(find . -type d) ; do
+    if [ -d "${x}/.git" ] ; then
+        cd "${x}"
+        origin="$(git config --get remote.origin.url)"
+        cd - 1>/dev/null
+        git submodule add "${origin}" "${x}"
+    fi
+    done
+}
+
+function debugjava {
+    java -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5050,suspend=y -cp build -ea $1
+}
+function runjava {
+    java -cp build -ea
+}
+
+function debugspring {
+    mvn -o spring-boot:run -Dspring-boot.run.jvmArguments="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=5050 -Dspring.profiles.active=local"
+}
+
+function runspring {
+    mvn -o spring-boot:run -Dspring-boot.run.jvmArguments="-Dspring.profiles.active=local"
+}
+
+function debugjar {
+    java -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5050,suspend=y -jar $1
+}
+
+# go
+export PATH=$PATH:/usr/local/go/bin
+export GOPROXY=https://goproxy.io,direct

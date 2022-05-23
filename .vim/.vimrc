@@ -1,0 +1,174 @@
+setlocal foldmethod=marker
+"
+" let &packpath .= ',' .. g:mypp
+" let &runtimepath .= ',' .. g:mypp
+" exec "source" g:mypp . '/vimrc'
+" for init.lua
+" dofile(vim.api.nvim_get_var('mypp')..'/init.lua')
+
+" nvim config location
+" linux: ~/.config/nvim/init.vim
+" windows: C:/Users/admin/AppData/Local/nvim/init.vim
+
+" keys for potential remapping
+" Q: enter EX mode
+" R: enter replace mode
+" Y: copy line
+" U: revoke inline change
+" s: remapped for hop/easymotion search
+" K: man page of cursor word
+" ': jump to line head of a mark
+" \: not used
+" Z: ZZ, ZQ barely used for quit
+" X: backspace
+" C: change to end of line
+" ?: search backward
+" C-H: backspace
+" C-M: enter
+" C-I: tab
+" -: lines upward on the first non blank char
+" C-S: could be unavailable, commonly used to freeze terminal
+" <C-,>, <C-.>, <C-->, <C-=> seems not able to remap
+" 
+" nnoremap ;g :echo 'First command'<CR>
+" nmap <M-i> :echo 'meta-i'<CR>
+
+" runtimepath & pachpath {{{
+
+set packpath^=~/.vim
+set runtimepath^=~/.vim
+set runtimepath^=~/.vim/setup
+" let setup_home = '~/.vim/setup'
+" let &packpath = '~/.vim,' .. &packpath
+" let &runtimepath = '~/.vim,' .. &runtimepath
+" let &runtimepath = setup_home .. ',' .. &runtimepath
+" }}}
+
+" BasicMapping{{{1
+let mapleader = ';'
+noremap . ;
+noremap <Space>  .
+" let mapleader = '<Space>'
+ 
+"noremap <CR> : # this will cause problem in netrw
+noremap ' "
+
+noremap g. g,
+noremap g, g;
+
+noremap gm :execute "Man " . expand("<cword>")<cr>
+" :Man <c-r>=expand("<cword>")
+" execute &keywordprg . " " . expand('<cword>')
+
+noremap 0 ^
+noremap ^ 0
+
+nnoremap D dd
+
+nnoremap <leader>sa :w<CR>
+nnoremap <leader>so :so $MYVIMRC<CR>
+" nnoremap <leader>vi :e $MYVIMRC<CR>
+
+" left hand scroll
+" nnoremap <C-f> <C-u>
+
+noremap! <C-K> <Up>
+noremap! <C-J> <Down>
+noremap! <C-H> <Left>
+noremap! <C-L> <Right>
+
+nnoremap <M-,> 2<C-w><
+nnoremap <M-.> 2<C-w>>
+nnoremap - 4<C-w>-
+nnoremap + 4<C-w>+
+
+nnoremap [q :cprev<CR>
+nnoremap ]q :cnext<CR>
+nnoremap [w :lprev<CR>
+nnoremap ]w :lnext<CR>
+
+vnoremap gy ygv<Esc>
+noremap gp p`[
+noremap gP P`[
+
+" in filename completion: move up into parent directory
+cnoremap <C-s> <Up>
+
+" terminal{{{2
+
+command! Tt :tabe | terminal ++curwin
+command! St :belo terminal
+command! Vt :vert terminal
+
+"}}}2
+
+" maximize current window
+nnoremap <C-W>z <C-W>_<C-W>\|
+
+"}}}
+
+" BasicSetting{{{1
+
+" set tabstop=4 softtabstop=0 expandtab shiftwidth=4 smarttab shiftround
+set expandtab softtabstop=4 shiftwidth=4 shiftround smarttab
+set scrolloff=3
+set ignorecase
+set smartcase
+set autoindent
+set textwidth=80
+" set formatoptions=tcrqnbmM1]jw
+set formatoptions=tcrqn2mMj
+set ruler
+set nu
+" colo desert
+set incsearch
+set nohlsearch
+" timeout and timeoutlen apply to mappings
+set timeoutlen=300
+" ttimeout and ttimeoutlen apply to key codes
+set ttimeoutlen=10
+set dictionary+=/usr/share/dict/words
+set dictionary+=/usr/share/dict/american-english-large
+let g:markdown_folding = 1
+let g:c_folding = 1
+set diffopt+=vertical
+" set autochdir
+" autocmd BufEnter * silent! :lcd %:p:h
+" autocmd BufEnter * if expand("%:p:h") !~ '^/tmp' | silent! lcd %:p:h | endif
+nnoremap <leader>cd :cd %:p:h<CR>:pwd<CR>
+
+" cursor{{{2
+
+function! ToggleCursorLine()
+    if &cursorline 
+        set nocursorline!
+    else 
+        set cursorline!
+    endif
+endfunction
+function! ToggleCursorColumn()
+    if &cursorcolumn
+        set nocursorcolumn!
+    else 
+        set cursorcolumn!
+    endif
+endfunction
+nnoremap sl :call ToggleCursorLine()<CR>
+nnoremap sn :call ToggleCursorColumn()<CR>
+
+"}}}2
+
+"}}}
+
+" Advanced{{{1
+
+runtime abbr.vim
+runtime cmd.vim
+runtime! plugin_setup.vim
+if has('nvim')
+    runtime install_packer.lua
+endif
+runtime nvim_setup.vim 
+
+"}}}
+

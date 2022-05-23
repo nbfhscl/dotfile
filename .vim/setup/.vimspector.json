@@ -1,0 +1,42 @@
+{
+    "adapters": {
+        "java-debug-server": {
+            "name": "vscode-java",
+            "port": "${AdapterPort}"
+        }
+    },
+    "configurations": {
+        "Java Attach": {
+            "default": true,
+            "adapter": "java-debug-server",
+            "configuration": {
+                "request": "attach",
+                "host": "127.0.0.1",
+                "port": "5050"
+            },
+            "breakpoints": {
+                "exception": {
+                    "caught": "N",
+                    "uncaught": "N"
+                }
+            }
+        },
+        "Go Run": {
+            "adapter": "delve",
+            "filetypes": [ "go" ], 
+            "configuration": {
+                "request": "launch",
+                "program": "${fileDirname}",
+                "mode": "debug"
+            },
+            "breakpoints": {
+                "exception": {
+                    "raised": "N",
+                    "caught": "",
+                    "uncaught": ""
+                }
+            }
+
+        }
+    }
+}

@@ -1,0 +1,32 @@
+{
+    "html.filetypes": [
+        "html",
+        "handlebars",
+        "htmldjango",
+        "blade",
+        "markdown"
+    ],
+    "list.insertMappings": {
+        "<C-v>": "action:vsplit",
+        "<C-x>": "action:split"
+    },
+    "list.normalMappings": {
+    },
+    "java.trace.server": "verbose",
+//    "java.configuration.runtimes":[
+//        {
+//            "name": "JavaSE-1.8",
+//            "path": "/usr/lib/jvm/java-8-openjdk-amd64"
+//        },
+//        {
+//            "name": "JavaSE-11",
+//            "path": "/usr/lib/jvm/java-11-openjdk-amd64",
+//            "default": true
+//        }
+//    ],
+    "session.saveOnVimLeave": false,
+    "xml.java.home": "/usr/lib/jvm/java-11-openjdk-amd64",
+    "leetcode.language": "java",
+    "texlab.build.executable": "tectonic",
+    "texlab.build.args": ["%f"]
+}

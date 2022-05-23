@@ -1,0 +1,7 @@
+{
+  "iter": {
+    "prefix": ["iter"],
+    "body": ["for ($3 $2 : $1) {", "\t$0", "}"],
+    "description": "A for loop."
+  }
+}
