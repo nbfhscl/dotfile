@@ -87,6 +87,7 @@ function JavaStartDebug()
 endfunction
 command! -nargs=0 JavaAttach :call JavaStartDebug()<CR>
 " autocmd FileType java nmap <Leader>dd :call JavaStartDebug()<CR>
+autocmd FileType java nnoremap <buffer> ;dd :JavaAttach<CR>
 
 " method 2
 " autocmd FileType java nmap <Leader>dd :CocCommand java.debug.vimspector.start<CR>

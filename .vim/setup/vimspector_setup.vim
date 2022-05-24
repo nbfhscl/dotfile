@@ -5,22 +5,27 @@ else
     let maplocalleader = "\\"
 endif
 
-command! -nargs=0 GoLaunch :call vimspector#LaunchWithConfigurations({
+nnoremap <leader>dD :VimspectorReset<CR>
+
+command! -nargs=* GoLaunch :call vimspector#LaunchWithConfigurations({
             \  "Go Launch": {
             \    "adapter": "delve", 
             \    "configuration": {
             \      "request":"launch",
             \      "program": "${fileDirname}",
-            \      "mode":"debug"
+            \      "mode":"debug",
+            \      "args": [<f-args>]
             \    }
             \  }
             \})
+autocmd FileType go nnoremap <buffer> ;dd :GoLaunch<CR>
 
 " let g:vimspector_install_gadgets = ['delve']
 " let g:vimspector_enable_mappings = 'HUMAN'
 nmap <silent><nowait> <leader>bb <Plug>VimspectorToggleBreakpoint
 nmap <silent><nowait> <leader>bf <Plug>VimspectorAddFunctionBreakpoint
 nmap <silent><nowait> <leader>bc <Plug>VimspectorToggleConditionalBreakpoint
+nmap <silent><nowait> <leader>K <Plug>VimspectorBalloonEval<CR>
 
 " ask/always/never
 let g:ycm_java_hotcodereplace_mode = 'ask'

@@ -26,6 +26,8 @@ setlocal foldmethod=marker
 " C-H: backspace
 " C-M: enter
 " C-I: tab
+" n_C-K:
+" n_C-j:
 " -: lines upward on the first non blank char
 " C-S: could be unavailable, commonly used to freeze terminal
 " <C-,>, <C-.>, <C-->, <C-=> seems not able to remap
