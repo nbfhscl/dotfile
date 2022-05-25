@@ -27,6 +27,7 @@ call plug#begin('~/.vim/plugged')
     Plug 'honza/vim-snippets'
     Plug 'tpope/vim-eunuch'
     Plug 'junegunn/vim-peekaboo'
+    Plug 'dgileadi/vscode-java-decompiler'
     " Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries' }
     " Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && yarn install'  }
     " a solid language pack for vim
@@ -58,7 +59,6 @@ runtime coc_setup.vim
 runtime vimspector_setup.vim
 runtime gruvbox-material_setup.vim
 runtime lightline_setup.vim
-" packadd vscode-java-decompiler
 "
 if has('mac') 
     noremap sw :MacDictWord<CR>

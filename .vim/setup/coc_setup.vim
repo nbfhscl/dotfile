@@ -45,10 +45,9 @@ let g:coc_global_extensions += [
 
 " ---------------- java -----------------
 let g:coc_global_extensions = [
-            \"coc-java",
-            \"coc-java-lombok",
-            \"coc-java-debug",
+            \'coc-java',
             \'coc-java-lombok',
+            \'coc-java-debug',
             \'coc-xml'
             \]
 "
