@@ -3,10 +3,16 @@ HERE="${BASH_SOURCE[0]%/*}"
 # EDITOR
 set -o vi
 export EDITOR=/usr/bin/nvim
+export COLORTERM='truecolor'
 # spell checker
 shopt -s cdspell
 # cd default
 compopt -o bashdefault cd
+
+export XDG_CONFIG_HOME=~/.config
+
+alias setproxy="export ALL_PROXY=socks5://192.168.137.1:1080"
+alias unsetproxy="unset ALL_PROXY"
 
 # history
 HISTFILESIZE=400000000
@@ -26,18 +32,22 @@ shopt -s histappend
 #    &amp;&amp; mv ~/.bash_history.tmp$$ ~/.bash_history
 #fi
 
-# git
 source /usr/share/bash-completion/completions/git
+# source /usr/share/bash-completion/completions/mvn
+source ~/.config/bash/mvn.completion
 # fzf
+[ -f ~/.fzf.bash ] && source ~/.fzf.bash
 # source "${HERE}/fzf.bash"
+source ~/.config/bash/fzf.bash
 # forgit
 # source "${HERE}/forgit/forgit.plugin.zsh"
+source ~/.config/bash/forgit.bash
 # git stat all
-function gitstat {
+function gsa {
    git log --format='%aN' | sort -u | while read name; do echo -en "$name\t"; git log --author="$name" --pretty=tformat: --numstat | awk '{ add += $1; subs += $2; loc += $1 - $2 } END { printf "added lines: %s, removed lines: %s, total lines: %s\n", add, subs, loc }' -; done
 }
 # git stat who
-function gitstatwho {
+function gsw {
     git log --author=$1 --pretty=tformat: --numstat | awk '{ add += $1; subs += $2; loc += $1 - $2 } END { printf "added lines: %s, removed lines: %s, total lines: %s\n", add, subs, loc }'
 }
 # git remove gone
@@ -53,11 +63,12 @@ function gin {
     git rm -r --cac . && git add .
 }
 
-# git auto add submodule
-function gitshowsubmodule {
+# git show submodules
+function gss {
     for x in $(find . -type d) ; do if [ -d "${x}/.git" ] ; then cd "${x}" ; origin="$(git config --get remote.origin.url)" ; cd - 1>/dev/null; echo git submodule add "${origin}" "${x}" ; fi ; done
 }
-function gitaddsubmodule {
+# git add submodules
+function gas {
     for x in $(find . -type d) ; do
     if [ -d "${x}/.git" ] ; then
         cd "${x}"
@@ -89,4 +100,4 @@ function debugjar {
 
 # go
 export PATH=$PATH:/usr/local/go/bin
-export GOPROXY=https://goproxy.io,direct
+export GOPROXY=https://goproxy.cn,direct
