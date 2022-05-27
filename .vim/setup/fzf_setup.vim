@@ -15,6 +15,9 @@
 
     " command! -bang -nargs=* Rg call fzf#vim#grep("rg --column --line-number --no-heading --color=always --smart-case -- ".shellescape(<q-args>), 1, fzf#vim#with_preview(), <bang>0)
 
+    command! -bang -nargs=* GGrep
+    \ call fzf#vim#grep('git grep --line-number '.shellescape(<q-args>), 0,
+    \   fzf#vim#with_preview({ 'dir': systemlist('git rev-parse --show-toplevel')[0] }), <bang>0)
 
     imap <c-x><c-k> <plug>(fzf-complete-word)
     imap <c-x><c-f> <plug>(fzf-complete-path)
@@ -74,6 +77,7 @@
                 \ 'ctrl-s': 'split', 
                 \ 'ctrl-v': 'vsplit',
                 \}
+    " tab, shift-tab to multiply select and put into quickfix list
 
 " endif
 

@@ -112,7 +112,7 @@ nnoremap <C-W>z <C-W>_<C-W>\|
 " BasicSetting{{{1
 
 " set tabstop=4 softtabstop=0 expandtab shiftwidth=4 smarttab shiftround
-set expandtab softtabstop=4 shiftwidth=4 shiftround smarttab
+set tabstop=4 expandtab softtabstop=4 shiftwidth=4 shiftround smarttab
 set scrolloff=3
 set ignorecase
 set smartcase
@@ -167,9 +167,6 @@ nnoremap sn :call ToggleCursorColumn()<CR>
 runtime abbr.vim
 runtime cmd.vim
 runtime! plugin_setup.vim
-if has('nvim')
-    runtime install_packer.lua
-endif
 runtime nvim_setup.vim 
 
 "}}}
