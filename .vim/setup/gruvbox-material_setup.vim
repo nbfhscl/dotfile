@@ -29,7 +29,7 @@ function! s:gruvbox_material_custom() abort
     " Initialize the color palette.
     " The first parameter is a valid value for `g:gruvbox_material_background`,
     " and the second parameter is a valid value for `g:gruvbox_material_palette`.
-    let l:palette = gruvbox_material#get_palette('soft', 'material')
+    let l:palette = gruvbox_material#get_palette('soft', 'material', {})
     " Define a highlight group.
     " The first parameter is the name of a highlight group,
     " the second parameter is the foreground color,
