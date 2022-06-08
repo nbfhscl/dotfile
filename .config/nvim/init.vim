@@ -1,1 +1,0 @@
-/home/nbfhscl/.vim/vimrc
