@@ -12,7 +12,7 @@ command! -nargs=* GoLaunch :call vimspector#LaunchWithConfigurations({
             \    "adapter": "delve", 
             \    "configuration": {
             \      "request":"launch",
-            \      "program": "${fileDirname}",
+            \      "program": "${cwd}",
             \      "mode":"debug",
             \      "args": [<f-args>]
             \    }
