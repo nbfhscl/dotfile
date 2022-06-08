@@ -2,7 +2,7 @@ HERE="${BASH_SOURCE[0]%/*}"
 
 # EDITOR
 set -o vi
-export EDITOR=/usr/bin/nvim
+export EDITOR=nvim
 export COLORTERM='truecolor'
 # spell checker
 shopt -s cdspell
@@ -36,7 +36,7 @@ source /usr/share/bash-completion/completions/git
 # source /usr/share/bash-completion/completions/mvn
 source ~/.config/bash/mvn.completion
 # fzf
-[ -f ~/.fzf.bash ] && source ~/.fzf.bash
+# [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 # source "${HERE}/fzf.bash"
 source ~/.config/bash/fzf.bash
 # forgit
