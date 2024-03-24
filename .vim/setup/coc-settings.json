@@ -28,5 +28,7 @@
     "xml.java.home": "/usr/lib/jvm/java-11-openjdk-amd64",
     "leetcode.language": "java",
     "texlab.build.executable": "tectonic",
-    "texlab.build.args": ["%f"]
+    "texlab.build.args": ["%f"],
+    "https.rejectUnauthorized": false,
+    "http.proxyStrictSSL": false
 }

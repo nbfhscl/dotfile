@@ -9,7 +9,7 @@ call plug#begin('~/.vim/plugged')
     Plug 'itchyny/lightline.vim'
     Plug 'tpope/vim-commentary'
     Plug 'michaeljsmith/vim-indent-object'
-    Plug 'matze/vim-move'
+    Plug 'matze/vim-move' " move lines
     Plug 'tpope/vim-repeat'
     Plug 'tpope/vim-surround'
     Plug 'sgur/vim-textobj-parameter'

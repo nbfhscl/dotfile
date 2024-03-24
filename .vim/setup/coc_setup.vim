@@ -51,9 +51,9 @@ let g:coc_global_extensions += [
             \'coc-xml'
             \]
 " --------------- go ----------------
-let g:coc_global_extensions += [
-            \ 'coc-go'
-            \]
+"let g:coc_global_extensions += [
+"            \ 'coc-go'
+"            \]
 "
 " autocmd FileType java silent! nmap <Leader>dd :AsyncRun mvn spring-boot:run -Dspring-boot.run.jvmArguments="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=12345" -Dspring-boot.run.profiles=local<CR>
 " command! -nargs=? DebugJava :AsyncRun mvn spring-boot:run -Dspring-boot.run.jvmArguments="-Dspring.profiles.active=local -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=12345"

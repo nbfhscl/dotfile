@@ -1,6 +1,7 @@
 if exists('loaded_move')                 
     if has('mac')
-        " this is not required when enable use optino as meta key
+        " this is not required when enable use option as meta key
+        " terminal-->preference-->profiles-->keybords-->use option as meta key
         " nnoremap ˙  <<
         " nmap ∆ <Plug>MoveLineDown
         " nmap ˚ <Plug>MoveLineUp

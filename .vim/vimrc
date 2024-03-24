@@ -1,3 +1,11 @@
+" key 's' is my custom leader
+" sv: open vimrc home / sc: :Commands / sm: search keymapping / sh: helptags
+" ... more see fzf_setup.vim
+" gd: go to definition
+" gf: go to file 
+" zo/zc open/close current fold
+" zM/zR open/close all folds
+" zj/zk [z/]z
 setlocal foldmethod=marker
 "
 " let &packpath .= ',' .. g:mypp
@@ -55,9 +63,11 @@ noremap <Space>  .
 "noremap <CR> : # this will cause problem in netrw
 noremap ' "
 
+" navigate change list
 noremap g. g,
 noremap g, g;
 
+" quick man page on current word
 noremap gm :execute "Man " . expand("<cword>")<cr>
 " :Man <c-r>=expand("<cword>")
 " execute &keywordprg . " " . expand('<cword>')
@@ -67,6 +77,7 @@ noremap ^ 0
 
 nnoremap D dd
 
+" save
 nnoremap <leader>sa :w<CR>
 nnoremap <leader>so :so $MYVIMRC<CR>
 " nnoremap <leader>vi :e $MYVIMRC<CR>
@@ -94,12 +105,16 @@ noremap gp p`[
 noremap gP P`[
 
 " in filename completion: move up into parent directory
+" <C-j> to confirm / <C-s> to upper
 cnoremap <C-s> <Up>
 
 " terminal{{{2
 
+" open terminal in new tab
 command! Tt :tabe | terminal ++curwin
+" open terminal below
 command! St :belo terminal
+" open terminal vertical
 command! Vt :vert terminal
 
 "}}}2
@@ -140,7 +155,7 @@ set diffopt+=vertical
 nnoremap <leader>cd :cd %:p:h<CR>:pwd<CR>
 
 " cursor{{{2
-
+" toggle cursor line
 function! ToggleCursorLine()
     if &cursorline 
         set nocursorline!
@@ -164,8 +179,8 @@ nnoremap sn :call ToggleCursorColumn()<CR>
 
 " Advanced{{{1
 
-runtime abbr.vim
-runtime cmd.vim
+" runtime abbr.vim
+" runtime cmd.vim
 runtime! plugin_setup.vim
 runtime nvim_setup.vim 
 
