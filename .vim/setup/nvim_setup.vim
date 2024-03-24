@@ -4,6 +4,7 @@ if has('nvim')
 
     runtime nvim_setup.lua
 
+    " different from vim version
     command! Tt :tabe | terminal
     command! Vt :rightb vsplit | terminal
     command! St :bo split | terminal

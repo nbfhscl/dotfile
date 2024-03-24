@@ -6,6 +6,11 @@
 " zo/zc open/close current fold
 " zM/zR open/close all folds
 " zj/zk [z/]z
+" setup/plugin_setup.vim contains all plugins managed by plugged
+" setup/fzf_setup.vim fuzzy finding
+" setup/nvim_setup.vim little configuration but calls nvim_setup.lua
+" setup/nvim_setup.lua plugins managed by packer for nvim
+" :RG [starter] to get some info for starter
 setlocal foldmethod=marker
 "
 " let &packpath .= ',' .. g:mypp
@@ -182,7 +187,9 @@ nnoremap sn :call ToggleCursorColumn()<CR>
 " runtime abbr.vim
 " runtime cmd.vim
 runtime! plugin_setup.vim
-runtime nvim_setup.vim 
+if has('nvim')
+    runtime nvim_setup.vim 
+end
 
 "}}}
 

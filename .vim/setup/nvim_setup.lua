@@ -86,6 +86,10 @@ require('packer').startup({function(use)
             require('refactoring').setup({})
         end
     }
+    -- snippets plugin for nvim
+    -- use {
+    --     "L3MON4D3/LuaSnip",
+    -- }
     if packer_bootstrap then
         require('packer').sync()
     end

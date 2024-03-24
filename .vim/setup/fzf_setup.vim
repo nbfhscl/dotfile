@@ -1,6 +1,7 @@
 " if exists('loaded_fzf_vim')
     let preview_light = {'options': ['--phony', '--preview', 'bat --theme=ansi-light --color=always --style=numbers --line-range=:500 {}', '--info=inline']}
 
+    "[starter]
     nmap sb :Buffers<CR>
     nmap sc :Commands<CR>
     nmap sh :Helptags<CR>
@@ -12,6 +13,7 @@
     command! -bang -nargs=? GFiles
         \ call fzf#vim#gitfiles(<q-args>, {'options': ['--preview', 'bat --theme=ansi-light --color=always --style=numbers --line-range=:500 {}', '--info=inline']}, <bang>0)
     nmap sg :GFiles<CR>
+
     " system command is returning a string with a trailing newline (as it
     " should) and Vim is converting it to a null, which displays ^@
     " strip away the last byte using [:-2]
@@ -23,14 +25,20 @@
 
     " command! -bang -nargs=* Rg call fzf#vim#grep("rg --column --line-number --no-heading --color=always --smart-case -- ".shellescape(<q-args>), 1, fzf#vim#with_preview(), <bang>0)
 
+    " [starter]
+    " GGrep
     command! -bang -nargs=* GGrep
     \ call fzf#vim#grep('git grep --line-number '.shellescape(<q-args>), 0,
     \   fzf#vim#with_preview({ 'dir': systemlist('git rev-parse --show-toplevel')[0] }), <bang>0)
 
+    " [starter]
+    " fzf complete
     imap <c-x><c-k> <plug>(fzf-complete-word)
     imap <c-x><c-f> <plug>(fzf-complete-path)
     imap <c-x><c-l> <plug>(fzf-complete-line)
 
+    " [starter]
+    " searching using :RG <string>
     function! s:RG(fullscreen, ...)
         let l:pat = ''
         let l:dir = expand("%:p:h")
@@ -72,13 +80,14 @@
         " \--color=marker:#87ff00,spinner:#af5fff,header:#87afaf 
         " \--preview 'bat --color=always --style=numbers --line-range=:500 {}' 
 
-    " insert selected file path
+
+    " [starter]
+    " sf/sv/sg to open fzf, <c-r> to insert the selected file name
+    " sf/sv/sg to open fzf, <c-s>/<c-t>/<c-v> to open the file
     func! s:insert_file_name(lines)
         let @@ = fnamemodify(a:lines[0], ":p")
         normal! p
     endfunc 
-
-
     let g:fzf_action = { 
                 \ 'ctrl-r': function('s:insert_file_name'), 
                 \ 'ctrl-t': 'tab split', 
