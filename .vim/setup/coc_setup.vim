@@ -1,7 +1,5 @@
 if exists('loaded_coc')
     finish
-else 
-    let g:loaded_coc = 1
 endif
 
 let g:coc_config_home = '~/.vim/setup'
@@ -286,3 +284,12 @@ augroup end
 " provide custom statusline: lightline.vim, vim-airline.
 " set statusline^=%{coc#status()}%{get(b:,'coc_current_function','')}
 
+if !exists('loaded_coc')
+    let g:loaded_coc = 1
+    " echo "1"
+    " if has('nvim')
+    "     call coc#rpc#stop()
+    "     echo "nvim found, stop coc.nvim"
+    " end
+    " echo "3"
+end

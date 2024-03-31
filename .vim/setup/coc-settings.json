@@ -30,5 +30,6 @@
     "texlab.build.executable": "tectonic",
     "texlab.build.args": ["%f"],
     "https.rejectUnauthorized": false,
-    "http.proxyStrictSSL": false
+    "http.proxyStrictSSL": false,
+    "snippets.ultisnips.pythonPrompt": false
 }
