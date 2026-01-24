@@ -1,13 +1,13 @@
 #!/bin/bash
-# install.sh - 安全部署 dotfiles 到新环境
-# 使用方式: curl -fsSL https://raw.githubusercontent.com/nbfhscl/dotfiles/main/install.sh | bash
+# install.sh - 安全部署 dotfile 到新环境
+# 使用方式: curl -fsSL https://raw.githubusercontent.com/nbfhscl/dotfile/main/install.sh | bash
 
 set -euo pipefail
 
 # 配置
-REPO_URL="https://github.com/nbfhscl/dotfiles.git"  # ← 替换为你的仓库地址
-DOT_DIR="$HOME/.dotfiles"
-BACKUP_DIR="$HOME/.dotfiles_backup_$(date +%Y%m%d_%H%M%S)"
+REPO_URL="https://github.com/nbfhscl/dotfile.git"  # ← 替换为你的仓库地址
+DOT_DIR="$HOME/.dotfile"
+BACKUP_DIR="$HOME/.dotfile_backup_$(date +%Y%m%d_%H%M%S)"
 ALIAS_NAME="dot"
 
 # 颜色输出
@@ -34,12 +34,12 @@ if ! command -v git &> /dev/null; then
   error "Git is not installed. Please install Git first."
 fi
 
-# 检查是否已存在 dotfiles 仓库
+# 检查是否已存在 dotfile 仓库
 if [ -d "$DOT_DIR" ]; then
-  error ".dotfiles directory already exists. Aborting."
+  error ".dotfile directory already exists. Aborting."
 fi
 
-log "Cloning dotfiles bare repository..."
+log "Cloning dotfile bare repository..."
 git clone --bare "$REPO_URL" "$DOT_DIR" >/dev/null 2>&1
 
 # 定义 dot 命令函数（避免依赖 alias）
@@ -68,7 +68,7 @@ else
 fi
 
 # 强制检出配置（覆盖本地同名文件）
-log "Deploying dotfiles..."
+log "Deploying dotfile..."
 dot checkout -f >/dev/null 2>&1
 
 # 隐藏未跟踪文件（避免 status 显示整个家目录）
@@ -86,7 +86,7 @@ else
 fi
 
 if ! grep -q "alias $ALIAS_NAME=" "$SHELL_RC" 2>/dev/null; then
-  echo "alias $ALIAS_NAME='git --git-dir=\$HOME/.dotfiles/ --work-tree=\$HOME'" >> "$SHELL_RC"
+  echo "alias $ALIAS_NAME='git --git-dir=\$HOME/.dotfile/ --work-tree=\$HOME'" >> "$SHELL_RC"
   log "Added 'dot' alias to $SHELL_RC"
 fi
 
