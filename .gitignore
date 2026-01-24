@@ -1,2 +1,52 @@
-plugged/
-plugin/
+# ============= 全局忽略 =============
+# 忽略所有文件（白名单模式）
+*
+
+# ============= 但不忽略以下配置 =============
+!.*                     # 所有 .xxx 文件（如 .vimrc, .zshrc）
+!.*/                    # 所有 .xxx 目录（如 .vim/, .config/）
+!.config/**/*           # .config 下所有文件
+!.vim/**/*              # .vim 下所有文件
+
+# ============= 排除敏感/临时文件 =============
+# Vim/Neovim 临时文件
+.vim/.netrwhist
+.vim/tmp/
+.vim/swap/
+.vim/undo/
+.vim/backup/
+.config/nvim/swap/
+.config/nvim/undo/
+.config/nvim/backup/
+
+# 插件管理器缓存（按需保留）
+# 如果你用 vim-plug，通常应提交 plugged/，但也可忽略
+.vim/plugged/
+.config/nvim/plugged/
+
+# 系统/应用配置（避免误提交）
+.config/configstore/
+.config/gcloud/
+.config/gh/
+.config/git/credentials
+.config/karabiner/
+.config/Code/          # VS Code 配置建议单独管理
+.config/Google/
+.config/Microsoft/
+
+# Shell 历史
+.bash_history
+.zsh_history
+
+# SSH/GPG
+.ssh/
+.gnupg/
+
+# 本地脚本/临时文件
+*.local
+*.secret
+*.key
+.env
+
+# 备份目录（由 install.sh 生成）
+.dotfiles_backup_*/
