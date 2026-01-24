@@ -1,6 +1,6 @@
 #!/bin/bash
 # install.sh - 安全部署 dotfile 到新环境
-# 使用方式: curl -fsSL https://raw.githubusercontent.com/nbfhscl/dotfile/main/install.sh | bash
+# 使用方式: curl -fsSL https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.sh | bash
 
 set -euo pipefail
 
