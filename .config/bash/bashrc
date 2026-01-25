@@ -7,7 +7,7 @@ export COLORTERM='truecolor'
 # spell checker
 shopt -s cdspell
 # cd default
-compopt -o bashdefault cd
+#compopt -o bashdefault cd
 
 export XDG_CONFIG_HOME=~/.config
 
@@ -32,7 +32,13 @@ shopt -s histappend
 #    &amp;&amp; mv ~/.bash_history.tmp$$ ~/.bash_history
 #fi
 
+# bash_completion
+[[ -f /usr/share/bash-completion/bash_completion ]] && \
+    . /usr/share/bash-completion/bash_completion
+
 # fzf
 # [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 # source "${HERE}/fzf.bash"
 source ~/.config/bash/fzf.bash
+
+alias tmux='tmux -f ~/.config/tmux/tmux.conf'
