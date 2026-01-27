@@ -10,15 +10,14 @@ call plug#begin('~/.vim/plugged')
     Plug 'junegunn/fzf.vim'
     Plug 'sainnhe/gruvbox-material' " color scheme
     Plug 'tpope/vim-commentary' " gc to comment stuff out
-    Plug 'matze/vim-move' " move lines
+    " Plug 'matze/vim-move' " move lines
     Plug 'tpope/vim-surround' " ys/ds/cs/yss/vS to modify surround on objects
     Plug 'tpope/vim-repeat' " repeat plugin commands. vim-surround, etc
     Plug 'sgur/vim-textobj-parameter' " a/i/i2 to select parameter of functions
     Plug 'kana/vim-textobj-user' " create your own text objects
     Plug 'michaeljsmith/vim-indent-object' " ai/aI/ii/iI to select indent object include/uninclude the line above
     "Plug 'johngrib/vim-mac-dictionary' " search word for mac. seems not working anymore
-    Plug 'voldikss/vim-translator' " sw to translate the word under cursor
-    Plug 'itchyny/lightline.vim' " status bar
+    "Plug 'voldikss/vim-translator' " sw to translate the word under cursor
 "--------------------
     Plug 'airblade/vim-rooter' " changes the working directory to the project root. see configuration in rooter_setup.vim
     Plug 'junegunn/vim-peekaboo' " contents of registers, <c-r> in insert mode
@@ -28,9 +27,6 @@ call plug#begin('~/.vim/plugged')
     Plug 'christoomey/vim-tmux-navigator' " working with tmux <c-hjkl\>
     Plug 'tpope/vim-eunuch' " sugar for the UNIX shell commands. like :Remove/:Delete/:Chmod/:Mkdir
     Plug 'honza/vim-snippets'
-    Plug 'neoclide/coc.nvim', {'branch': 'release'}
-    Plug 'puremourning/vimspector'
-    Plug 'dgileadi/vscode-java-decompiler'
     " Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries' }
     " Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && yarn install'  }
     " a solid language pack for vim
@@ -39,6 +35,12 @@ call plug#begin('~/.vim/plugged')
     " Plug 'preservim/nerdtree'
     " Plug 'voldikss/vim-floaterm'
     " Plug 'tpope/vim-vinegar'
+if !has('nvim')
+    Plug 'itchyny/lightline.vim' " status bar
+    Plug 'neoclide/coc.nvim', {'branch': 'release'}
+    Plug 'puremourning/vimspector'
+    Plug 'dgileadi/vscode-java-decompiler'
+end
 call plug#end()
 
 let mapleader = ';'
@@ -56,18 +58,20 @@ if exists('loaded_commentary')
     " autocmd FileType apache setlocal commentstring=#\ %s
 endif
 packadd termdebug
-runtime rooter_setup.vim
-runtime fzf_setup.vim
-runtime coc_setup.vim
-runtime vimspector_setup.vim
-runtime gruvbox-material_setup.vim
-runtime lightline_setup.vim
+source ~/.vim/setup/rooter_setup.vim
+source ~/.vim/setup/fzf_setup.vim
+source ~/.vim/setup/gruvbox-material_setup.vim
+if !has('nvim')
+    source ~/.vim/setup/lightline_setup.vim
+    source ~/.vim/setup/vimspector_setup.vim
+    source ~/.vim/setup/coc_setup.vim
+end
 
 " the plugin johngrib/vim-mac-dictionary seems not working anymore. see plugin_setup.vim
 "if has('mac') 
     "noremap sw :MacDictWordCR
 "else 
-    noremap sw :TranslateCR
+"    noremap sw :TranslateCR
 "end
 
 " tmux{{{2

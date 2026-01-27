@@ -1,3 +1,5 @@
+EDITOR=vim
+export EDITOR
 plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
 eval "$(zoxide init zsh)"
 source <(fzf --zsh)

@@ -50,9 +50,10 @@ setlocal foldmethod=marker
 
 " runtimepath & pachpath {{{
 
-set packpath^=~/.vim
-set runtimepath^=~/.vim
-set runtimepath^=~/.vim/setup
+"set packpath^=~/.vim
+"set runtimepath^=~/.vim
+"set runtimepath^=~/.vim/setup
+
 " let setup_home = '~/.vim/setup'
 " let &packpath = '~/.vim,' .. &packpath
 " let &runtimepath = '~/.vim,' .. &runtimepath
@@ -60,7 +61,7 @@ set runtimepath^=~/.vim/setup
 " }}}
 
 " BasicMapping{{{1
-let mapleader = ';'
+let g:mapleader = ';'
 noremap . ;
 noremap <Space>  .
 " let mapleader = '<Space>'
@@ -186,9 +187,8 @@ nnoremap sn :call ToggleCursorColumn()<CR>
 
 " runtime abbr.vim
 " runtime cmd.vim
-runtime! plugin_setup.vim
-if has('nvim')
-    runtime nvim_setup.vim 
+if !has('nvim')
+    source ~/.vim/setup/plugin_setup.vim
 end
 
 "}}}
