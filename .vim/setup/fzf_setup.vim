@@ -1,4 +1,3 @@
-" if exists('loaded_fzf_vim')
     let preview_light = {'options': ['--phony', '--preview', 'bat --theme=ansi-light --color=always --style=numbers --line-range=:500 {}', '--info=inline']}
 
     "[starter]
@@ -10,18 +9,21 @@
         \ call fzf#vim#files(<q-args>, {'options': ['--preview', 'bat --theme=ansi-light --color=always --style=numbers --line-range=:500 {}', '--info=inline']}, <bang>0)
     nmap sf :Files 
     nmap sv :Files ~/.vim/<CR>
+    " if has('nvim')
+    "     nnoremap sv :call fzf#vim#files(stdpath('config'))<CR>
+    " end
     command! -bang -nargs=? GFiles
         \ call fzf#vim#gitfiles(<q-args>, {'options': ['--preview', 'bat --theme=ansi-light --color=always --style=numbers --line-range=:500 {}', '--info=inline']}, <bang>0)
     nmap sg :GFiles<CR>
 
-    " system command is returning a string with a trailing newline (as it
-    " should) and Vim is converting it to a null, which displays ^@
-    " strip away the last byte using [:-2]
-    autocmd FileType go let b:stdPath = system('go env GOROOT')[:-2]
-    function! StdLib()
-        execute "Files ".b:stdPath."/src/"
-    endfunction
-    nmap ss :call StdLib()<CR>
+    " " system command is returning a string with a trailing newline (as it
+    " " should) and Vim is converting it to a null, which displays ^@
+    " " strip away the last byte using [:-2]
+    " autocmd FileType go let b:stdPath = system('go env GOROOT')[:-2]
+   " function! StdLib()
+    "     execute "Files ".b:stdPath."/src/"
+    " endfunction
+    " nmap ss :call StdLib()<CR>
 
     " command! -bang -nargs=* Rg call fzf#vim#grep("rg --column --line-number --no-heading --color=always --smart-case -- ".shellescape(<q-args>), 1, fzf#vim#with_preview(), <bang>0)
 
@@ -95,6 +97,4 @@
                 \ 'ctrl-v': 'vsplit',
                 \}
     " tab, shift-tab to multiply select and put into quickfix list
-
-" endif
 

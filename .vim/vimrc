@@ -67,7 +67,7 @@ noremap <Space>  .
 " let mapleader = '<Space>'
  
 "noremap <CR> : # this will cause problem in netrw
-noremap ' "
+"noremap ' "
 
 " navigate change list
 noremap g. g,
@@ -84,8 +84,8 @@ noremap ^ 0
 nnoremap D dd
 
 " save
-nnoremap <leader>sa :w<CR>
-nnoremap <leader>so :so $MYVIMRC<CR>
+nnoremap <C-s> :w<CR>
+nnoremap <C-r> :so $MYVIMRC<CR>
 " nnoremap <leader>vi :e $MYVIMRC<CR>
 
 " left hand scroll
@@ -96,8 +96,8 @@ noremap! <C-J> <Down>
 noremap! <C-H> <Left>
 noremap! <C-L> <Right>
 
-nnoremap <M-,> 2<C-w><
-nnoremap <M-.> 2<C-w>>
+" nnoremap <M-,> 2<C-w><
+" nnoremap <M-.> 2<C-w>>
 nnoremap - 4<C-w>-
 nnoremap + 4<C-w>+
 
@@ -112,7 +112,7 @@ noremap gP P`[
 
 " in filename completion: move up into parent directory
 " <C-j> to confirm / <C-s> to upper
-cnoremap <C-s> <Up>
+" cnoremap <C-s> <Up>
 
 " terminal{{{2
 
