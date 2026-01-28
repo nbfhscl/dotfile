@@ -23,3 +23,18 @@ zle -N accept-suggestion
 # 绑定 Alt-f,实际上生效的是alt-l
 bindkey '^[f' accept-suggestion
 
+
+_claude_with_profile() {
+  export CLAUDE_CONFIG_DIR="$1"
+  command claude "${@:2}"
+}
+
+# Personal profile (default)
+claude() {
+  _claude_with_profile "$HOME/.claude" "$@"
+}
+
+# Work profile
+claude2() {
+  _claude_with_profile "$HOME/.claude2" "$@"
+}
