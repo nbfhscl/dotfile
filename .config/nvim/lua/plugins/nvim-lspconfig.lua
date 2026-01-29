@@ -12,11 +12,11 @@ return {
 				},
 				marksman = {
 					settings = {
-						marksman = {
+						markdown = {
 							-- 全局禁用某些规则
-							disabledRules = { "MD013", "MD024", "MD031" }, -- 行长、重复标题等
+							disableRules = { "MD013", "MD024", "MD032", "MD036", "MD060" }, -- 行长、重复标题等
 							-- 或启用自定义配置文件
-							configPath = vim.fn.expand("~/.config/markdownlint.json"),
+							--configPath = vim.fn.expand("~/.config/markdownlint.json"),
 						},
 					},
 				},
