@@ -26,7 +26,10 @@ return {
 							analysis = {
 								-- Add current project root to module search path
 								extraPaths = { vim.fn.getcwd() },
+								typeCheckingMode = "basic",
 								autoSearchPaths = true,
+								useLibraryCodeForTypes = true,
+								diagnosticMode = "workspace", -- 确保跨文件分析
 							},
 						},
 					},
