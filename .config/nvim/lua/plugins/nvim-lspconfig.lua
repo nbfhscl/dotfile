@@ -22,6 +22,10 @@ return {
 				},
 				pyright = {
 					settings = {
+						pright = {
+							-- 启用自动导入组织
+							organizeImports = true,
+						},
 						python = {
 							analysis = {
 								-- Add current project root to module search path
