@@ -1,22 +1,17 @@
 return {
 	{
 		"neovim/nvim-lspconfig",
+		priority = 1000,
 		opts = {
+			--diagnostics = {
+			--	-- 全局屏蔽 MD060，同时避免其他冗余规则干扰
+			--	ignore_code = { "MD060" },
+			--},
 			servers = {
 				lua_ls = {
 					settings = {
 						Lua = {
 							globals = { "vim" },
-						},
-					},
-				},
-				marksman = {
-					settings = {
-						markdown = {
-							-- 全局禁用某些规则
-							disableRules = { "MD013", "MD024", "MD032", "MD036", "MD060" }, -- 行长、重复标题等
-							-- 或启用自定义配置文件
-							--configPath = vim.fn.expand("~/.config/markdownlint.json"),
 						},
 					},
 				},
