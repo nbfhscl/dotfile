@@ -2,6 +2,13 @@ return {
 	{
 		"nvim-neo-tree/neo-tree.nvim",
 		dependencies = "nvim-tree/nvim-web-devicons",
+		keys = {
+			{
+				"<leader>nr",
+				"<cmd>Neotree reveal<cr>",
+				desc = "NeoTree Reveal",
+			},
+		},
 		config = function()
 			local function open_grug_far(prefills)
 				local grug_far = require("grug-far")
