@@ -4,7 +4,7 @@ return {
 		dependencies = "nvim-tree/nvim-web-devicons",
 		keys = {
 			{
-				"<leader>nr",
+				"<leader>fl",
 				"<cmd>Neotree reveal<cr>",
 				desc = "NeoTree Reveal",
 			},
