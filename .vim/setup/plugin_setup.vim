@@ -60,7 +60,7 @@ endif
 " packadd termdebug
 source ~/.vim/setup/rooter_setup.vim
 source ~/.vim/setup/fzf_setup.vim
-source ~/.vim/setup/gruvbox-material_setup.vim
+" source ~/.vim/setup/gruvbox-material_setup.vim
 if !has('nvim')
     source ~/.vim/setup/lightline_setup.vim
     " source ~/.vim/setup/vimspector_setup.vim
