@@ -7,6 +7,8 @@
 !.*/                    # 所有 .xxx 目录（如 .vim/, .config/）
 !.config/**/*           # .config 下所有文件
 !.vim/**/*              # .vim 下所有文件
+!install.sh
+!uninstall.sh
 
 # ============= 排除敏感/临时文件 =============
 # Vim/Neovim 临时文件

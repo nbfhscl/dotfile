@@ -47,21 +47,30 @@ dot() {
   git --git-dir="$DOT_DIR" --work-tree="$HOME" "$@"
 }
 
-# 检查哪些文件会冲突
+# 检查哪些文件会冲突（不执行 checkout，避免副作用）
 log "Checking for conflicting files..."
-conflicts=$(dot checkout 2>&1 | grep -E "already exists" | awk '{print $NF}' || true)
+conflicts=()
+tracked_files="$(dot ls-tree -r --name-only HEAD || true)"
+if [ -n "$tracked_files" ]; then
+  while IFS= read -r file; do
+    [ -n "$file" ] || continue
+    if [ -e "$HOME/$file" ] || [ -L "$HOME/$file" ]; then
+      conflicts+=("$file")
+    fi
+  done <<< "$tracked_files"
+fi
 
-if [ -n "$conflicts" ]; then
+if [ "${#conflicts[@]}" -gt 0 ]; then
   warn "The following files already exist and will be backed up:"
   mkdir -p "$BACKUP_DIR"
-  while IFS= read -r file; do
-    if [ -e "$file" ]; then
+  for file in "${conflicts[@]}"; do
+    if [ -e "$HOME/$file" ] || [ -L "$HOME/$file" ]; then
       backup_path="$BACKUP_DIR/$file"
       mkdir -p "$(dirname "$backup_path")"
-      cp -r "$file" "$backup_path"
+      cp -a "$HOME/$file" "$backup_path"
       echo "  → $file"
     fi
-  done <<< "$conflicts"
+  done
   log "Backup saved to: $BACKUP_DIR"
 else
   log "No conflicts found."
@@ -76,9 +85,10 @@ dot config --local status.showUntrackedFiles no
 
 # 将 alias 写入 shell 配置（支持 zsh/bash）
 SHELL_RC=""
-if [ -n "${ZSH_VERSION:-}" ]; then
+shell_name="$(basename "${SHELL:-}")"
+if [ "$shell_name" = "zsh" ]; then
   SHELL_RC="$HOME/.zshrc"
-elif [ -n "${BASH_VERSION:-}" ]; then
+elif [ "$shell_name" = "bash" ]; then
   SHELL_RC="$HOME/.bashrc"
 else
   # 默认写入 .profile
