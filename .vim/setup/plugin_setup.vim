@@ -8,7 +8,7 @@ call plug#begin('~/.vim/plugged')
     " general
     Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
     Plug 'junegunn/fzf.vim'
-    Plug 'sainnhe/gruvbox-material' " color scheme
+    " Plug 'sainnhe/gruvbox-material' " color scheme
     Plug 'tpope/vim-commentary' " gc to comment stuff out
     " Plug 'matze/vim-move' " move lines
     Plug 'tpope/vim-surround' " ys/ds/cs/yss/vS to modify surround on objects
@@ -21,12 +21,12 @@ call plug#begin('~/.vim/plugged')
 "--------------------
     Plug 'airblade/vim-rooter' " changes the working directory to the project root. see configuration in rooter_setup.vim
     Plug 'junegunn/vim-peekaboo' " contents of registers, <c-r> in insert mode
-    Plug 'tpope/vim-fugitive' " git integration. see d?
-    Plug 'airblade/vim-gitgutter' " shows a git diff in the sign column. ;hs/;hu/;hp stage/undo/preview
+    " Plug 'tpope/vim-fugitive' " git integration. see d?
+    " Plug 'airblade/vim-gitgutter' " shows a git diff in the sign column. ;hs/;hu/;hp stage/undo/preview
 "--------------------
     Plug 'christoomey/vim-tmux-navigator' " working with tmux <c-hjkl\>
     Plug 'tpope/vim-eunuch' " sugar for the UNIX shell commands. like :Remove/:Delete/:Chmod/:Mkdir
-    Plug 'honza/vim-snippets'
+    " Plug 'honza/vim-snippets'
     " Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries' }
     " Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app && yarn install'  }
     " a solid language pack for vim
@@ -37,9 +37,9 @@ call plug#begin('~/.vim/plugged')
     " Plug 'tpope/vim-vinegar'
 if !has('nvim')
     Plug 'itchyny/lightline.vim' " status bar
-    Plug 'neoclide/coc.nvim', {'branch': 'release'}
-    Plug 'puremourning/vimspector'
-    Plug 'dgileadi/vscode-java-decompiler'
+    " Plug 'neoclide/coc.nvim', {'branch': 'release'}
+    " Plug 'puremourning/vimspector'
+    " Plug 'dgileadi/vscode-java-decompiler'
 end
 call plug#end()
 
@@ -57,14 +57,14 @@ runtime ftplugin/man.vim
 if exists('loaded_commentary')
     " autocmd FileType apache setlocal commentstring=#\ %s
 endif
-packadd termdebug
+" packadd termdebug
 source ~/.vim/setup/rooter_setup.vim
 source ~/.vim/setup/fzf_setup.vim
 source ~/.vim/setup/gruvbox-material_setup.vim
 if !has('nvim')
     source ~/.vim/setup/lightline_setup.vim
-    source ~/.vim/setup/vimspector_setup.vim
-    source ~/.vim/setup/coc_setup.vim
+    " source ~/.vim/setup/vimspector_setup.vim
+    " source ~/.vim/setup/coc_setup.vim
 end
 
 " the plugin johngrib/vim-mac-dictionary seems not working anymore. see plugin_setup.vim
