@@ -359,7 +359,16 @@ is_ubuntu() {
 # 获取当前 nvim 版本号
 get_nvim_version() {
   if command -v nvim &> /dev/null; then
-    nvim --version | head -1 | grep -oP 'NVIM v\K[0-9.]+' 2>/dev/null || echo "0.0.0"
+    # 使用更可移植的方式提取版本号
+    local version_output=$(nvim --version 2>/dev/null | head -1)
+    # 尝试使用 sed 提取版本号（最可移植）
+    local version=$(echo "$version_output" | sed -n 's/.*NVIM v\([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p' 2>/dev/null)
+
+    if [ -n "$version" ]; then
+      echo "$version"
+    else
+      echo "0.0.0"
+    fi
   else
     echo "0.0.0"
   fi
@@ -370,14 +379,26 @@ version_ge() {
   local v1=$1
   local v2=$2
 
+  # 验证版本号格式（允许数字和点）
+  if ! [[ "$v1" =~ ^[0-9]+(\.[0-9]+)*$ ]] || ! [[ "$v2" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+    return 1
+  fi
+
   # 将版本号拆分为数组
   IFS='.' read -ra v1_parts <<< "$v1"
   IFS='.' read -ra v2_parts <<< "$v2"
 
-  # 逐个比较
-  for i in 0 1 2; do
-    local n1=${v1_parts[$i]:-0}
-    local n2=${v2_parts[$i]:-0}
+  # 获取最大长度
+  local max_len=${#v1_parts[@]}
+  if [ ${#v2_parts[@]} -gt $max_len ]; then
+    max_len=${#v2_parts[@]}
+  fi
+
+  # 逐个比较（处理不同长度的版本号）
+  for ((i=0; i<max_len; i++)); do
+    # 移除前导零，使用 10 进制（避免八进制误判）
+    local n1=$((10#${v1_parts[$i]:-0}))
+    local n2=$((10#${v2_parts[$i]:-0}))
     if (( n1 > n2 )); then
       return 0
     elif (( n1 < n2 )); then
@@ -405,13 +426,34 @@ detect_architecture() {
 
 # 获取 Neovim 最新版本号
 get_latest_nvim_version() {
+  local api_url="https://api.github.com/repos/neovim/neovim/releases/latest"
+  local timeout=10
+  local response
+
   if command -v curl &> /dev/null; then
-    curl -s https://api.github.com/repos/neovim/neovim/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/v//'
+    response=$(curl -fsSL --max-time "$timeout" "$api_url" 2>/dev/null)
   elif command -v wget &> /dev/null; then
-    wget -qO- https://api.github.com/repos/neovim/neovim/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/v//'
+    response=$(wget -qO- --timeout="$timeout" "$api_url" 2>/dev/null)
   else
     echo "unknown"
+    return 1
   fi
+
+  # 检查是否获取到响应
+  if [ -z "$response" ]; then
+    echo "unknown"
+    return 1
+  fi
+
+  # 提取版本号（更健壮的正则）
+  local version=$(echo "$response" | grep -oE '"tag_name":\s*"v?[0-9]+\.[0-9]+\.[0-9]+"' | sed 's/.*"v\?\([0-9.]*\)".*/\1/' | head -1)
+
+  if [ -z "$version" ]; then
+    echo "unknown"
+    return 1
+  fi
+
+  echo "$version"
 }
 
 # 使用 AppImage 安装 Neovim
@@ -433,20 +475,34 @@ install_nvim_appimage() {
 
   local appimage_url="https://github.com/neovim/neovim/releases/download/v${latest_version}/nvim-linux-${arch}.appimage"
   local temp_file="/tmp/nvim.appimage"
+  local download_success=false
 
-  # 下载 AppImage
+  # 下载 AppImage（使用 -f 参数确保 HTTP 错误时失败）
   if command -v curl &> /dev/null; then
-    if ! curl -Ls "$appimage_url" -o "$temp_file" 2>/dev/null; then
-      warn_error "下载 Neovim AppImage 失败"
-      return 1
+    if curl -fL --progress-bar "$appimage_url" -o "$temp_file" 2>/dev/null; then
+      download_success=true
     fi
   elif command -v wget &> /dev/null; then
-    if ! wget -q "$appimage_url" -O "$temp_file" 2>/dev/null; then
-      warn_error "下载 Neovim AppImage 失败"
-      return 1
+    if wget --progress=bar:force "$appimage_url" -O "$temp_file" 2>/dev/null; then
+      download_success=true
     fi
   else
     warn_error "需要 curl 或 wget 来下载 Neovim"
+    return 1
+  fi
+
+  # 验证下载是否成功
+  if [ "$download_success" != true ] || [ ! -s "$temp_file" ]; then
+    warn_error "下载 Neovim AppImage 失败或文件为空"
+    rm -f "$temp_file"
+    return 1
+  fi
+
+  # 检查文件大小（AppImage 通常 > 50MB）
+  local file_size=$(stat -c%s "$temp_file" 2>/dev/null || stat -f%z "$temp_file" 2>/dev/null)
+  if [ "$file_size" -lt 50000000 ]; then
+    warn_error "下载的文件大小异常（${file_size} bytes），可能不完整"
+    rm -f "$temp_file"
     return 1
   fi
 
@@ -461,8 +517,20 @@ install_nvim_appimage() {
   fi
 
   if sudo mv "$temp_file" /usr/local/bin/nvim 2>/dev/null; then
-    log "✓ Neovim AppImage 安装完成"
-    return 0
+    # 验证 /usr/local/bin 是否在 PATH 中
+    if [[ ":$PATH:" != *":/usr/local/bin:"* ]]; then
+      warn "注意: /usr/local/bin 不在 PATH 中"
+      log "您可能需要运行: export PATH=\"/usr/local/bin:\$PATH\""
+    fi
+
+    # 立即验证 nvim 是否可用
+    if /usr/local/bin/nvim --version &>/dev/null; then
+      log "✓ Neovim AppImage 安装完成"
+      return 0
+    else
+      warn_error "Neovim 安装成功但无法执行"
+      return 1
+    fi
   else
     warn_error "安装 Neovim 失败"
     rm -f "$temp_file"
@@ -833,10 +901,13 @@ main() {
         nvim)
           echo "  # 方法 1: 使用 AppImage（推荐，快速且简单）"
           echo "  ARCH=\$(uname -m)"
-          echo "  if [ \"\$ARCH\" = \"x86_64\" ]; then"
+          echo "  if [ \"\$ARCH\" = \"x86_64\" ] || [ \"\$ARCH\" = \"amd64\" ]; then"
           echo "    wget https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.appimage"
-          echo "  elif [ \"\$ARCH\" = \"aarch64\" ]; then"
+          echo "  elif [ \"\$ARCH\" = \"aarch64\" ] || [ \"\$ARCH\" = \"arm64\" ]; then"
           echo "    wget https://github.com/neovim/neovim/releases/latest/download/nvim-linux-arm64.appimage"
+          echo "  else"
+          echo "    echo \"不支持的架构: \$ARCH\""
+          echo "    exit 1"
           echo "  fi"
           echo "  chmod +x nvim-*.appimage"
           echo "  sudo mv nvim-*.appimage /usr/local/bin/nvim"
