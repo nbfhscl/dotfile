@@ -352,53 +352,199 @@ is_ubuntu() {
   return 1
 }
 
-install_nvim() {
-  if ! command -v nvim &> /dev/null; then
-    info "正在安装 neovim..."
-    local pm=$(detect_package_manager)
-    local installed=false
+# ============================================================================
+# Neovim 安装辅助函数
+# ============================================================================
 
-    case "$pm" in
-      apt)
-        # Ubuntu: 添加 PPA 获取最新版本
-        # Debian: 直接使用仓库版本（PPA 不兼容 Debian）
-        if is_ubuntu; then
-          if [ ! -f /etc/apt/sources.list.d/neovim-ppa.list ]; then
-            if check_sudo; then
-              log "检测到 Ubuntu，添加 neovim PPA..."
-              sudo add-apt-repository ppa:neovim-ppa/stable -y 2>/dev/null
-              sudo apt-get update -qq 2>/dev/null
-            fi
-          fi
-        else
-          log "检测到 Debian/其他系统，使用仓库版本"
-        fi
-        if install_package "neovim" 2>/dev/null; then
-          installed=true
-        fi
-        ;;
-      brew)
-        if brew install neovim 2>/dev/null; then
-          installed=true
-        fi
-        ;;
-      *)
-        if install_package "neovim" 2>/dev/null; then
-          installed=true
-        fi
-        ;;
-    esac
+# 获取当前 nvim 版本号
+get_nvim_version() {
+  if command -v nvim &> /dev/null; then
+    nvim --version | head -1 | grep -oP 'NVIM v\K[0-9.]+' 2>/dev/null || echo "0.0.0"
+  else
+    echo "0.0.0"
+  fi
+}
 
-    if [ "$installed" = true ]; then
-      log "✓ neovim 安装完成"
-    else
-      warn_error "✗ neovim 安装失败"
+# 比较两个版本号（返回 0 如果 v1 >= v2）
+version_ge() {
+  local v1=$1
+  local v2=$2
+
+  # 将版本号拆分为数组
+  IFS='.' read -ra v1_parts <<< "$v1"
+  IFS='.' read -ra v2_parts <<< "$v2"
+
+  # 逐个比较
+  for i in 0 1 2; do
+    local n1=${v1_parts[$i]:-0}
+    local n2=${v2_parts[$i]:-0}
+    if (( n1 > n2 )); then
+      return 0
+    elif (( n1 < n2 )); then
+      return 1
+    fi
+  done
+  return 0
+}
+
+# 检测系统架构
+detect_architecture() {
+  local arch=$(uname -m)
+  case "$arch" in
+    x86_64|amd64)
+      echo "x86_64"
+      ;;
+    aarch64|arm64)
+      echo "arm64"
+      ;;
+    *)
+      echo "unknown"
+      ;;
+  esac
+}
+
+# 获取 Neovim 最新版本号
+get_latest_nvim_version() {
+  if command -v curl &> /dev/null; then
+    curl -s https://api.github.com/repos/neovim/neovim/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/v//'
+  elif command -v wget &> /dev/null; then
+    wget -qO- https://api.github.com/repos/neovim/neovim/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/v//'
+  else
+    echo "unknown"
+  fi
+}
+
+# 使用 AppImage 安装 Neovim
+install_nvim_appimage() {
+  local arch=$(detect_architecture)
+
+  if [ "$arch" = "unknown" ]; then
+    warn_error "无法检测系统架构"
+    return 1
+  fi
+
+  local latest_version=$(get_latest_nvim_version)
+  if [ "$latest_version" = "unknown" ]; then
+    warn_error "无法获取最新版本信息"
+    return 1
+  fi
+
+  info "正在从 GitHub 下载 Neovim $latest_version (AppImage, $arch)..."
+
+  local appimage_url="https://github.com/neovim/neovim/releases/download/v${latest_version}/nvim-linux-${arch}.appimage"
+  local temp_file="/tmp/nvim.appimage"
+
+  # 下载 AppImage
+  if command -v curl &> /dev/null; then
+    if ! curl -Ls "$appimage_url" -o "$temp_file" 2>/dev/null; then
+      warn_error "下载 Neovim AppImage 失败"
+      return 1
+    fi
+  elif command -v wget &> /dev/null; then
+    if ! wget -q "$appimage_url" -O "$temp_file" 2>/dev/null; then
+      warn_error "下载 Neovim AppImage 失败"
       return 1
     fi
   else
-    log "✓ neovim 已安装"
+    warn_error "需要 curl 或 wget 来下载 Neovim"
+    return 1
   fi
-  return 0
+
+  # 赋予执行权限
+  chmod +x "$temp_file"
+
+  # 安装到 /usr/local/bin（需要 sudo）
+  if ! check_sudo; then
+    warn_error "需要 sudo 权限来安装 Neovim"
+    rm -f "$temp_file"
+    return 1
+  fi
+
+  if sudo mv "$temp_file" /usr/local/bin/nvim 2>/dev/null; then
+    log "✓ Neovim AppImage 安装完成"
+    return 0
+  else
+    warn_error "安装 Neovim 失败"
+    rm -f "$temp_file"
+    return 1
+  fi
+}
+
+# 使用 brew 安装 Neovim（macOS）
+install_nvim_brew() {
+  info "正在使用 brew 安装 Neovim..."
+  if brew install neovim 2>/dev/null; then
+    log "✓ Neovim 安装完成"
+    return 0
+  else
+    warn_error "✗ Neovim 安装失败"
+    return 1
+  fi
+}
+
+# 验证 Neovim 版本
+verify_nvim_version() {
+  if ! command -v nvim &> /dev/null; then
+    error "Neovim 安装验证失败：nvim 命令不存在"
+  fi
+
+  local version=$(get_nvim_version)
+  info "已安装 Neovim 版本: $version"
+
+  if ! version_ge "$version" "0.9.0"; then
+    error "Neovim 版本过低 ($version < 0.9.0)，LazyVim 需要至少 0.9.0"
+  fi
+
+  log "✓ Neovim 版本验证通过 ($version ≥ 0.9.0)"
+}
+
+install_nvim() {
+  local os=$(detect_os)
+  local installed=false
+
+  # 检查现有版本
+  if command -v nvim &> /dev/null; then
+    local current_version=$(get_nvim_version)
+    if version_ge "$current_version" "0.9.0"; then
+      log "✓ Neovim 已安装 (版本 $current_version ≥ 0.9.0)"
+      return 0
+    else
+      warn "检测到 Neovim 版本 $current_version < 0.9.0，将自动升级"
+    fi
+  fi
+
+  info "正在安装 Neovim (需要 ≥ 0.9.0)..."
+  echo ""
+
+  # 根据操作系统选择安装方式
+  if [ "$os" = "macos" ]; then
+    # macOS 使用 brew
+    if install_nvim_brew; then
+      installed=true
+    fi
+  else
+    # Linux 使用 AppImage
+    if [ -n "$DRY_RUN" ]; then
+      info "[DRY-RUN] 将从 GitHub 下载 Neovim AppImage"
+      installed=true
+    else
+      if install_nvim_appimage; then
+        installed=true
+      fi
+    fi
+  fi
+
+  if [ "$installed" = true ]; then
+    echo ""
+    # 验证安装的版本
+    if [ -z "$DRY_RUN" ]; then
+      verify_nvim_version
+    fi
+    return 0
+  else
+    warn_error "✗ Neovim 安装失败"
+    return 1
+  fi
 }
 
 install_nodejs_npm() {
@@ -685,12 +831,22 @@ main() {
     for tool in "${failed_installs[@]}"; do
       case "$tool" in
         nvim)
-          echo "  # 安装 neovim (Debian - 使用仓库版本):"
+          echo "  # 方法 1: 使用 AppImage（推荐，快速且简单）"
+          echo "  ARCH=\$(uname -m)"
+          echo "  if [ \"\$ARCH\" = \"x86_64\" ]; then"
+          echo "    wget https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.appimage"
+          echo "  elif [ \"\$ARCH\" = \"aarch64\" ]; then"
+          echo "    wget https://github.com/neovim/neovim/releases/latest/download/nvim-linux-arm64.appimage"
+          echo "  fi"
+          echo "  chmod +x nvim-*.appimage"
+          echo "  sudo mv nvim-*.appimage /usr/local/bin/nvim"
+          echo ""
+          echo "  # 方法 2: 使用包管理器（可能版本较旧）"
           echo "  sudo apt-get update && sudo apt-get install -y neovim"
           echo ""
-          echo "  # 或者从源码构建更新版本:"
+          echo "  # 方法 3: 从源码构建（最灵活，但耗时较长）"
           echo "  sudo apt-get install -y cmake gettext libtool libtool-bin \\"
-          echo "    autoconf automake g++ pkg-config unzip curl python3-pip "
+          echo "    autoconf automake g++ pkg-config unzip curl python3-pip"
           echo "  git clone https://github.com/neovim/neovim.git"
           echo "  cd neovim && make CMAKE_BUILD_TYPE=RelWithDebInfo"
           echo "  sudo make install"
