@@ -10,11 +10,19 @@
     - Oh-My-Posh, PSReadLine 等增强工具
     - dotfile 自动部署
 
+    使用方式（一键安装）: irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1 | iex
+
 .EXAMPLE
     .\install.ps1
 
 .EXAMPLE
     .\install.ps1 -SkipTools -OnlyDotfile
+
+.EXAMPLE
+    irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1 | iex
+
+.EXAMPLE
+    irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1 | iex; .\install.ps1 -OnlyDotfile
 
 .PARAMETER SkipTools
     跳过工具安装，只部署 dotfile
