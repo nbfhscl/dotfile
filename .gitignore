@@ -9,6 +9,7 @@
 !.vim/**/*              # .vim 下所有文件
 !docs/**/*              # 文档目录
 !install.sh
+!install.ps1
 !uninstall.sh
 
 # ============= 排除敏感/临时文件 =============
