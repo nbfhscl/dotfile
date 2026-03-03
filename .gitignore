@@ -7,6 +7,7 @@
 !.*/                    # 所有 .xxx 目录（如 .vim/, .config/）
 !.config/**/*           # .config 下所有文件
 !.vim/**/*              # .vim 下所有文件
+!docs/**/*              # 文档目录
 !install.sh
 !uninstall.sh
 
