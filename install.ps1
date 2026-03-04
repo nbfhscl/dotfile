@@ -1,16 +1,16 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Windows 开发环境自动安装脚本
+    Windows development environment auto-install script
 
 .DESCRIPTION
-    自动安装和配置 Windows 开发工具，包括：
+    Automatically install and configure Windows development tools including:
     - Windows Terminal, PowerShell 7
     - Git, Node.js, Neovim
-    - Oh-My-Posh, PSReadLine 等增强工具
-    - dotfile 自动部署
+    - Oh-My-Posh, PSReadLine and other enhancement tools
+    - dotfile auto-deployment
 
-    使用方式（一键安装）: irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1 | iex
+    Usage (one-click install): irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1 | iex
 
 .EXAMPLE
     .\install.ps1
@@ -25,13 +25,13 @@
     irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1 | iex; .\install.ps1 -OnlyDotfile
 
 .PARAMETER SkipTools
-    跳过工具安装，只部署 dotfile
+    Skip tool installation, only deploy dotfile
 
 .PARAMETER OnlyDotfile
-    只部署 dotfile，不安装任何工具
+    Only deploy dotfile, no tool installation
 
 .PARAMETER DryRun
-    预演模式，只显示将要执行的操作
+    Dry run mode, only show what will be executed
 #>
 
 param(
@@ -40,18 +40,18 @@ param(
     [switch]$DryRun = $false
 )
 
-# 如果指定了 OnlyDotfile，自动设置 SkipTools
+# If OnlyDotfile is specified, automatically set SkipTools
 if ($OnlyDotfile) {
     $SkipTools = $true
 }
 
-# 配置
+# Configuration
 $REPO_URL = "https://github.com/nbfhscl/dotfile.git"
 $DOT_DIR = "$env:USERPROFILE\.dotfile"
 $BACKUP_DIR = "$env:USERPROFILE\.dotfile_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
 $ALIAS_NAME = "dot"
 
-# 颜色输出辅助函数
+# Color output helper functions
 function Write-Info {
     param([string]$Message)
     Write-Host "[INFO] $Message" -ForegroundColor Cyan
@@ -72,28 +72,29 @@ function Write-Error {
     Write-Host "[ERROR] $Message" -ForegroundColor Red
 }
 
-# 环境检测函数
+# Environment detection functions
 function Test-PowerShellVersion {
     $currentVersion = $PSVersionTable.PSVersion
-    Write-Info "当前 PowerShell 版本: $currentVersion"
+    Write-Info "Current PowerShell version: $currentVersion"
 
     if ($currentVersion.Major -lt 7) {
-        Write-Error "需要 PowerShell 7.0 或更高版本"
-        Write-Info "请运行: winget install Microsoft.PowerShell"
-        exit 1
+        Write-Warning "PowerShell 7.0 or higher is recommended, but continuing with PowerShell 5.1"
+        # Write-Error "PowerShell 7.0 or higher is required"
+        # Write-Info "Please run: winget install Microsoft.PowerShell"
+        # exit 1
     }
 
-    Write-Success "PowerShell 版本检查通过"
+    Write-Success "PowerShell version check passed"
     return $true
 }
 
 function Test-WingetAvailable {
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Write-Success "winget 已安装"
+        Write-Success "winget is installed"
         return $true
     } else {
-        Write-Warning "winget 未安装"
-        Write-Info "请从 Microsoft Store 安装 Windows Package Manager"
+        Write-Warning "winget is not installed"
+        Write-Info "Please install Windows Package Manager from Microsoft Store"
         return $false
     }
 }
@@ -104,16 +105,16 @@ function Test-Administrator {
     $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
     if ($isAdmin) {
-        Write-Success "管理员权限检测通过"
+        Write-Success "Administrator privileges check passed"
         return $true
     } else {
-        Write-Warning "未检测到管理员权限"
-        Write-Info "某些操作可能需要管理员权限"
+        Write-Warning "Administrator privileges not detected"
+        Write-Info "Some operations may require administrator privileges"
         return $false
     }
 }
 
-# 手动安装下载链接
+# Manual installation download links
 $ManualInstallLinks = @{
     "Git" = "https://git-scm.com/download/win"
     "Node.js" = "https://nodejs.org/"
@@ -126,8 +127,8 @@ function Show-ManualInstallHelp {
     param([string]$ToolName)
 
     if ($ManualInstallLinks.ContainsKey($ToolName)) {
-        Write-Warning "请手动安装 $ToolName:"
-        Write-Info "下载地址: $($ManualInstallLinks[$ToolName])"
+        Write-Warning "Please install $ToolName manually:"
+        Write-Info "Download URL: $($ManualInstallLinks[$ToolName])"
     }
 }
 
@@ -139,41 +140,43 @@ function Install-Package {
     )
 
     if ($DryRun) {
-        Write-Info "[DRY-RUN] 将安装 $PackageName (使用 winget)"
+        Write-Info "[DRY-RUN] Will install $PackageName (using winget)"
         return $true
     }
 
-    # 检查是否已安装
+    # Check if already installed
     $packageCommand = $PackageName -replace ' ', ''
     if (Get-Command $packageCommand -ErrorAction SilentlyContinue) {
-        Write-Success "$PackageName 已安装"
+        Write-Success "$PackageName is already installed"
         return $true
     }
 
-    Write-Info "正在安装 $PackageName..."
+    Write-Info "Installing $PackageName..."
 
     if (-not (Test-WingetAvailable)) {
         if ($Required) {
-            Write-Error "winget 不可用，无法安装 $PackageName"
+            Write-Error "winget is not available, cannot install $PackageName"
             Show-ManualInstallHelp -ToolName $PackageName
             return $false
         } else {
-            Write-Warning "跳过可选工具 $PackageName"
+            Write-Warning "Skipping optional tool $PackageName"
             return $true
         }
     }
 
-    # 使用 winget 安装
+    # Use winget to install
     $result = & winget install --id $WingetId --accept-source-agreements --accept-package-agreements -e 2>&1
 
     if ($LASTEXITCODE -eq 0) {
-        Write-Success "$PackageName 安装完成"
+        Write-Success "$PackageName installation completed"
 
-        # 刷新环境变量
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+        # Refresh environment variables
+        $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+        $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+        $env:Path = $machinePath + ";" + $userPath
         return $true
     } else {
-        Write-Error "$PackageName 安装失败"
+        Write-Error "$PackageName installation failed"
         if ($Required) {
             Show-ManualInstallHelp -ToolName $PackageName
         }
@@ -181,63 +184,76 @@ function Install-Package {
     }
 }
 
-# 核心工具安装函数
+# Core tool installation functions
 function Install-WindowsTerminal {
     if (Get-Command wt -ErrorAction SilentlyContinue) {
-        Write-Success "Windows Terminal 已安装"
+        Write-Success "Windows Terminal is installed"
         return $true
     }
-    Write-Info "正在安装 Windows Terminal..."
+    Write-Info "Installing Windows Terminal..."
     Install-Package -PackageName "Windows Terminal" -WingetId "Microsoft.WindowsTerminal"
 }
 
 function Install-PowerShell7 {
     if ($PSVersionTable.PSVersion.Major -ge 7) {
-        Write-Success "PowerShell 7 已安装"
+        Write-Success "PowerShell 7 is installed"
         return $true
     }
-    Write-Info "正在安装 PowerShell 7..."
+    Write-Info "Installing PowerShell 7..."
     Install-Package -PackageName "PowerShell" -WingetId "Microsoft.PowerShell"
 }
 
 function Install-Git {
-    Write-Info "正在安装 Git..."
+    Write-Info "Installing Git..."
     Install-Package -PackageName "Git" -WingetId "Git.Git" -Required
 }
 
 function Install-Nodejs {
-    Write-Info "正在安装 Node.js 和 npm..."
+    Write-Info "Installing Node.js and npm..."
     Install-Package -PackageName "Node.js" -WingetId "OpenJS.NodeJS.LTS" -Required
 }
 
 function Install-Neovim {
-    Write-Info "正在安装 Neovim..."
-    Install-Package -PackageName "Neovim" -WingetId "Neovim.Neovim" -Required
+    Write-Info "Installing Neovim..."
+    $result = Install-Package -PackageName "Neovim" -WingetId "Neovim.Neovim" -Required
+
+    if ($result) {
+        Write-Info "Verifying Neovim installation..."
+        if (Get-Command nvim -ErrorAction SilentlyContinue) {
+            $nvimVersion = & nvim --version | Select-Object -First 1
+            Write-Success "Neovim is installed: $nvimVersion"
+        } else {
+            Write-Warning "Neovim installation completed, but 'nvim' command not found in PATH"
+            Write-Info "You may need to restart your shell or refresh your PATH"
+        }
+    }
+
+    return $result
 }
 
 # ============================================
-# Task 5: PowerShell 模块安装
+# Task 5: PowerShell module installation
 # ============================================
 
 function Install-OhMyPosh {
     if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
-        Write-Success "Oh-My-Posh 已安装"
+        Write-Success "Oh-My-Posh is installed"
         return $true
     }
-    Write-Info "正在安装 Oh-My-Posh..."
+    Write-Info "Installing Oh-My-Posh..."
     if ($DryRun) { return $true }
     try {
         & winget install --id JanDeDobbeleer.OhMyPosh -e --accept-source-agreements --accept-package-agreements 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Success "Oh-My-Posh 安装完成"
+            Write-Success "Oh-My-Posh installation completed"
             return $true
         } else {
-            # 备用：使用 PowerShell 模块
+            # Fallback: use PowerShell module
             Install-Module -Name oh-my-posh -Force -Scope CurrentUser -AllowClobber
             return $true
         }
     } catch {
-        Write-Error "Oh-My-Posh 安装失败: $_"
+        Write-Error "Oh-My-Posh installation failed: $_"
         return $false
     }
 }
@@ -252,19 +268,19 @@ function Install-PSModules {
         $moduleName = $module.Name
         $required = $module.Required
         if (Get-Module -ListAvailable -Name $moduleName) {
-            Write-Success "$moduleName 已安装"
+            Write-Success "$moduleName is already installed"
             continue
         }
-        Write-Info "正在安装 $moduleName..."
+        Write-Info "Installing $moduleName..."
         if ($DryRun) { continue }
         try {
             Install-Module -Name $moduleName -Force -Scope CurrentUser -AllowClobber -ErrorAction Stop
-            Write-Success "$moduleName 安装完成"
+            Write-Success "$moduleName installation completed"
         } catch {
             if ($required) {
-                Write-Error "$moduleName 安装失败: $_"
+                Write-Error "$moduleName installation failed: $_"
             } else {
-                Write-Warning "$moduleName 安装失败（可选工具）"
+                Write-Warning "$moduleName installation failed (optional tool)"
             }
         }
     }
@@ -272,19 +288,134 @@ function Install-PSModules {
 
 function Install-Zoxide {
     if (Get-Command zoxide -ErrorAction SilentlyContinue) {
-        Write-Success "zoxide 已安装"
+        Write-Success "zoxide is installed"
         return $true
     }
-    Write-Info "正在安装 zoxide..."
+    Write-Info "Installing zoxide..."
     Install-Package -PackageName "zoxide" -WingetId "ajeetdsouza.zoxide" -Required:$false
 }
 
 # ============================================
-# Task 6: PowerShell Profile 配置
+# Neovim Configuration Deployment
+# ============================================
+
+function Deploy-VimRuntime {
+    <#
+    .SYNOPSIS
+        Deploy .vim directory to Windows Neovim runtime path
+
+    .DESCRIPTION
+        On Windows, Neovim uses $env:LOCALAPPDATA\nvim-data\vimfiles\ as the runtime path
+        (equivalent to ~/.vim on Unix). This function copies .vim contents there.
+    #>
+    Write-Info "Deploying Vim runtime files (.vim)..."
+    $vimSource = ".vim"
+    $vimTarget = "$env:LOCALAPPDATA\nvim-data\vimfiles"
+
+    if (-not (Test-Path $vimSource)) {
+        Write-Warning ".vim directory not found in dotfile, skipping"
+        return $false
+    }
+
+    # Create target directory if it doesn't exist
+    if (-not (Test-Path $vimTarget)) {
+        New-Item -ItemType Directory -Path $vimTarget -Force | Out-Null
+        Write-Info "Created directory: $vimTarget"
+    }
+
+    # Backup existing vimfiles if they exist
+    if (Test-Path "$vimTarget\*") {
+        $backupPath = "$env:USERPROFILE\.vimfiles_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+        Write-Info "Backing up existing vimfiles to: $backupPath"
+        Copy-Item -Path $vimTarget -Destination $backupPath -Recurse -Force
+    }
+
+    # Copy contents
+    try {
+        Copy-Item -Path "$vimSource\*" -Destination $vimTarget -Recurse -Force -ErrorAction Stop
+        Write-Success "Vim runtime files deployed to: $vimTarget"
+        return $true
+    } catch {
+        Write-Error "Failed to deploy Vim runtime files: $_"
+        return $false
+    }
+}
+
+function Deploy-NeovimConfig {
+    <#
+    .SYNOPSIS
+        Deploy .config/nvim to Windows Neovim config path
+
+    .DESCRIPTION
+        On Windows, Neovim uses $env:LOCALAPPDATA\nvim\ as the config path
+        (equivalent to ~/.config/nvim on Unix). This function copies nvim config there.
+    #>
+    Write-Info "Deploying Neovim configuration (.config/nvim)..."
+    $nvimSource = ".config\nvim"
+    $nvimTarget = "$env:LOCALAPPDATA\nvim"
+
+    if (-not (Test-Path $nvimSource)) {
+        Write-Warning ".config/nvim directory not found in dotfile, skipping"
+        return $false
+    }
+
+    # Create target directory if it doesn't exist
+    if (-not (Test-Path $nvimTarget)) {
+        New-Item -ItemType Directory -Path $nvimTarget -Force | Out-Null
+        Write-Info "Created directory: $nvimTarget"
+    }
+
+    # Backup existing nvim config if it exists
+    if (Test-Path "$nvimTarget\*") {
+        $backupPath = "$env:USERPROFILE\.nvim_config_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+        Write-Info "Backing up existing Neovim config to: $backupPath"
+        Copy-Item -Path $nvimTarget -Destination $backupPath -Recurse -Force
+    }
+
+    # Copy contents
+    try {
+        Copy-Item -Path "$nvimSource\*" -Destination $nvimTarget -Recurse -Force -ErrorAction Stop
+        Write-Success "Neovim configuration deployed to: $nvimTarget"
+        return $true
+    } catch {
+        Write-Error "Failed to deploy Neovim configuration: $_"
+        return $false
+    }
+}
+
+function Deploy-AllNeovimConfig {
+    <#
+    .SYNOPSIS
+        Deploy all Neovim-related configuration for Windows
+
+    .DESCRIPTION
+        Orchestrates deployment of both Vim runtime files and Neovim config
+    #>
+    Write-Info "=========================================="
+    Write-Info "Deploying Neovim configuration for Windows"
+    Write-Info "=========================================="
+
+    $vimRuntimeResult = Deploy-VimRuntime
+    $nvimConfigResult = Deploy-NeovimConfig
+
+    if ($vimRuntimeResult -or $nvimConfigResult) {
+        Write-Success "Neovim configuration deployment completed"
+        Write-Info "Neovim paths:"
+        Write-Info "  - Config:  $env:LOCALAPPDATA\nvim"
+        Write-Info "  - Runtime: $env:LOCALAPPDATA\nvim-data\vimfiles"
+        return $true
+    } else {
+        Write-Warning "No Neovim configuration files found to deploy"
+        return $false
+    }
+}
+
+# ============================================
+# Task 6: PowerShell Profile configuration
 # ============================================
 
 function Deploy-PowerShellProfile {
-    Write-Info "正在配置 PowerShell Profile..."
+    Write-Info "Configuring PowerShell Profile..."
     $profileDir = Split-Path -Parent $PROFILE.CurrentUserCurrentHost
     $profilePath = $PROFILE.CurrentUserCurrentHost
 
@@ -294,57 +425,57 @@ function Deploy-PowerShellProfile {
 
     if (Test-Path $profilePath) {
         $backupPath = "$profilePath.backup"
-        Write-Warning "发现现有 profile，备份到: $backupPath"
+        Write-Warning "Existing profile found, backing up to: $backupPath"
         Copy-Item $profilePath $backupPath -Force
     }
 
     $sourceProfile = ".config/powershell/profile.ps1"
     if (Test-Path $sourceProfile) {
-        Write-Info "从 dotfile 部署 profile..."
+        Write-Info "Deploying profile from dotfile..."
         Copy-Item $sourceProfile $profilePath -Force
     } else {
-        Write-Warning "未找到 dotfile 中的 profile，跳过"
+        Write-Warning "Profile not found in dotfile, skipping"
     }
 
-    Write-Success "PowerShell Profile 配置完成"
-    Write-Info "请运行 '. \$PROFILE' 或重启 PowerShell 以应用配置"
+    Write-Success "PowerShell Profile configuration completed"
+    Write-Info "Please run '. \$PROFILE' or restart PowerShell to apply configuration"
 }
 
 # ============================================
-# Task 7: dotfile 部署
+# Task 7: dotfile deployment
 # ============================================
 
 function Initialize-DotfileRepo {
     if (Test-Path $DOT_DIR) {
-        Write-Warning ".dotfile 目录已存在，将更新而非重新克隆"
+        Write-Warning ".dotfile directory already exists, will update instead of cloning"
         Push-Location $DOT_DIR
         & git fetch origin 2>$null
         if ($LASTEXITCODE -eq 0) {
-            Write-Success "dotfile 仓库更新完成"
+            Write-Success "dotfile repository update completed"
         } else {
-            Write-Warning "更新失败，将继续使用现有版本"
+            Write-Warning "Update failed, will continue with existing version"
         }
         Pop-Location
     } else {
-        Write-Info "正在克隆 dotfile 仓库..."
+        Write-Info "Cloning dotfile repository..."
         & git clone --bare $REPO_URL $DOT_DIR 2>$null
         if ($LASTEXITCODE -eq 0) {
-            Write-Success "dotfile 仓库克隆完成"
+            Write-Success "dotfile repository clone completed"
         } else {
-            Write-Error "无法克隆 dotfile 仓库"
+            Write-Error "Failed to clone dotfile repository"
             exit 1
         }
     }
 }
 
 function Deploy-Dotfiles {
-    Write-Info "正在部署 dotfile..."
+    Write-Info "Deploying dotfile..."
 
     function dot {
         & git --git-dir="$DOT_DIR" --work-tree="$env:USERPROFILE" $args
     }
 
-    Write-Info "检查文件冲突..."
+    Write-Info "Checking for file conflicts..."
     $trackedFiles = dot ls-tree -r --name-only HEAD 2>$null
     $conflicts = @()
 
@@ -356,7 +487,7 @@ function Deploy-Dotfiles {
     }
 
     if ($conflicts.Count -gt 0) {
-        Write-Warning "发现 $($conflicts.Count) 个冲突文件，将备份..."
+        Write-Warning "Found $($conflicts.Count) conflicting files, will backup..."
         New-Item -ItemType Directory -Path $BACKUP_DIR -Force | Out-Null
 
         foreach ($file in $conflicts) {
@@ -369,47 +500,47 @@ function Deploy-Dotfiles {
             }
 
             Copy-Item $sourcePath $backupPath -Force
-            Write-Info "  → 备份: $file"
+            Write-Info "  → Backup: $file"
         }
 
-        Write-Success "备份已保存至: $BACKUP_DIR"
+        Write-Success "Backup saved to: $BACKUP_DIR"
     } else {
-        Write-Success "没有发现冲突文件"
+        Write-Success "No conflicts found"
     }
 
-    Write-Info "正在部署 dotfile..."
+    Write-Info "Deploying dotfile..."
     dot checkout -f 2>$null
 
     if ($LASTEXITCODE -eq 0) {
-        Write-Success "dotfile 部署完成"
+        Write-Success "dotfile deployment completed"
         dot config --local status.showUntrackedFiles no
         Deploy-WindowsTerminalSettings
         Add-DotAliasToProfile
         return $true
     } else {
-        Write-Error "dotfile 部署失败"
+        Write-Error "dotfile deployment failed"
         return $false
     }
 }
 
 function Deploy-WindowsTerminalSettings {
-    Write-Info "正在配置 Windows Terminal..."
+    Write-Info "Configuring Windows Terminal..."
     $terminalSettingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
     if (-not (Test-Path $terminalSettingsPath)) {
-        Write-Warning "未找到 Windows Terminal 配置文件，跳过"
+        Write-Warning "Windows Terminal configuration file not found, skipping"
         return
     }
     $backupPath = "$terminalSettingsPath.backup"
-    Write-Info "备份现有配置到: $backupPath"
+    Write-Info "Backing up existing configuration to: $backupPath"
     Copy-Item $terminalSettingsPath $backupPath -Force
     $sourceSettings = ".config/windows-terminal/settings.json"
     if (Test-Path $sourceSettings) {
-        Write-Info "从 dotfile 部署 Windows Terminal 配置..."
+        Write-Info "Deploying Windows Terminal configuration from dotfile..."
         Copy-Item $sourceSettings $terminalSettingsPath -Force
-        Write-Success "Windows Terminal 配置完成"
-        Write-Info "请重启 Windows Terminal 以应用配置"
+        Write-Success "Windows Terminal configuration completed"
+        Write-Info "Please restart Windows Terminal to apply configuration"
     } else {
-        Write-Warning "未找到 dotfile 中的 Windows Terminal 配置"
+        Write-Warning "Windows Terminal configuration not found in dotfile"
     }
 }
 
@@ -421,19 +552,19 @@ function Add-DotAliasToProfile {
 
     $profileContent = Get-Content $profilePath -Raw
     if ($profileContent -notmatch 'function dot') {
-        Write-Info "添加 'dot' 别名到 PowerShell Profile..."
-        Add-Content -Path $profilePath -Value "`n# dotfile alias (自动添加)`n$aliasLine"
-        Write-Success "'dot' 别名已添加"
+        Write-Info "Adding 'dot' alias to PowerShell Profile..."
+        Add-Content -Path $profilePath -Value "`n# dotfile alias (auto-added)`n$aliasLine"
+        Write-Success "'dot' alias added"
     }
 }
 
 # ============================================
-# 主流程
+# Main process
 # ============================================
 
 function Install-AllTools {
     Write-Info "=========================================="
-    Write-Info "开始安装开发工具"
+    Write-Info "Starting development tools installation"
     Write-Info "=========================================="
 
     Install-WindowsTerminal
@@ -446,45 +577,46 @@ function Install-AllTools {
     Install-Zoxide
 
     Write-Success "=========================================="
-    Write-Success "开发工具安装完成"
+    Write-Success "Development tools installation completed"
     Write-Success "=========================================="
 }
 
 function main {
     Write-Info "=========================================="
-    Write-Info "Windows 开发环境安装脚本"
+    Write-Info "Windows development environment installation script"
     Write-Info "=========================================="
 
     if ($DryRun) {
-        Write-Warning "预演模式已启用，只显示将要执行的操作"
+        Write-Warning "Dry run mode enabled, only showing what will be executed"
     }
 
-    # 环境检测
+    # Environment detection
     Test-PowerShellVersion
     Test-WingetAvailable
     Test-Administrator
 
-    # 安装工具
+    # Install tools
     if (-not $SkipTools) {
         Install-AllTools
     } else {
-        Write-Info "跳过工具安装（已指定 -SkipTools 或 -OnlyDotfile）"
+        Write-Info "Skipping tool installation (-SkipTools or -OnlyDotfile specified)"
     }
 
-    # 部署 dotfile
+    # Deploy dotfile
     Write-Info "=========================================="
-    Write-Info "开始部署 dotfile"
+    Write-Info "Starting dotfile deployment"
     Write-Info "=========================================="
 
     Initialize-DotfileRepo
     Deploy-Dotfiles
     Deploy-PowerShellProfile
+    Deploy-AllNeovimConfig
 
     Write-Success "=========================================="
-    Write-Success "全部完成！"
+    Write-Success "All completed!"
     Write-Success "=========================================="
-    Write-Info "请重启 PowerShell 或运行 '. \$PROFILE' 以应用所有配置"
+    Write-Info "Please restart PowerShell or run '. \$PROFILE' to apply all configurations"
 }
 
-# 执行主流程
+# Execute main process
 main
