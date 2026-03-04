@@ -9,24 +9,21 @@ return {
 			-- 让 mason 自动安装这些 LSP
 			ensure_installed = {
 				"basedpyright",
-				"debugpy",
-				"java-debug-adapter",
-				"java-test",
 				"jdtls",
-				"json-lsp",
-				"lua-language-server",
-				"markdown-toc",
-				"markdownlint-cli2",
+				"jsonls",
+				"lua_ls",
 				"marksman",
-				"ruff",
-				"shfmt",
-				"sqlfluff",
-				"stylua",
 				"taplo",
-				"tree-sitter-cli",
+				"yamlls",
+
+				-- TypeScript 二选一（按你 nvim-lspconfig 版本）
+				-- 新版常用：
+				"ts_ls",
+				-- 老版（如果你那边还是 tsserver）：
+				-- "tsserver",
+
+				-- 如果你用 vtsls：
 				"vtsls",
-				"yaml-language-server",
-				"typescript-language-server",
 			},
 			-- 自动把已安装的 server 交给 lspconfig setup
 			automatic_installation = true,
