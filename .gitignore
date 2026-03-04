@@ -22,6 +22,7 @@
 .config/nvim/swap/
 .config/nvim/undo/
 .config/nvim/backup/
+.config/nvim/lazy-lock.json
 
 # 插件管理器缓存（按需保留）
 # 如果你用 vim-plug，通常应提交 plugged/，但也可忽略
