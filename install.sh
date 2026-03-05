@@ -1,29 +1,42 @@
 #!/bin/bash
-# install.sh - 安全部署 dotfile 到新环境
-# 使用方式: curl -fsSL https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.sh | bash
+# dotfile-manager.sh - Unified dotfile installation and removal management
+# Usage: bash dotfile-manager.sh [install|uninstall] [options]
 #
-# 环境变量:
-#   DRY_RUN=1    - 只显示将要执行的操作，不实际安装
-#   SKIP_INSTALL=1 - 跳过工具安装，只部署 dotfile
+# Environment variables for install:
+#   DRY_RUN=1       - Preview operations without executing
+#   SKIP_INSTALL=1  - Deploy dotfiles only, skip tool installation
+#
+# Environment variables for uninstall:
+#   NO_BACKUP=1     - Skip creating backup before removal
 
 set -euo pipefail
 
-# 配置
-REPO_URL="https://github.com/nbfhscl/dotfile.git"  # ← 替换为你的仓库地址
-DOT_DIR="$HOME/.dotfile"
-BACKUP_DIR="$HOME/.dotfile_backup_$(date +%Y%m%d_%H%M%S)"
-ALIAS_NAME="dot"
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
 
-# 检查是否为 dry-run 模式
+readonly REPO_URL="https://github.com/nbfhscl/dotfile.git"
+readonly DOT_DIR="$HOME/.dotfile"
+readonly ALIAS_NAME="dot"
+readonly SCRIPT_NAME="$(basename "$0")"
+
+# Runtime configuration
+BACKUP_DIR=""
 DRY_RUN="${DRY_RUN:-}"
 SKIP_INSTALL="${SKIP_INSTALL:-}"
+NO_BACKUP="${NO_BACKUP:-}"
+ACTION=""
 
-# 颜色输出
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Colors
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly NC='\033[0m'
+
+# ============================================================================
+# LOGGING FUNCTIONS
+# ============================================================================
 
 log() {
   echo -e "${GREEN}[INFO]${NC} $1"
@@ -38,17 +51,16 @@ error() {
   exit 1
 }
 
-# 警告但不退出
-warn_error() {
-  echo -e "${RED}[ERROR]${NC} $1" >&2
-}
-
 info() {
   echo -e "${BLUE}[STEP]${NC} $1"
 }
 
+warn_error() {
+  echo -e "${RED}[ERROR]${NC} $1" >&2
+}
+
 # ============================================================================
-# 平台检测
+# PLATFORM DETECTION
 # ============================================================================
 
 detect_os() {
@@ -89,7 +101,6 @@ detect_package_manager() {
   fi
 }
 
-# 检查是否有 sudo 权限
 check_sudo() {
   if ! sudo -v &>/dev/null; then
     return 1
@@ -97,306 +108,295 @@ check_sudo() {
   return 0
 }
 
+detect_architecture() {
+  local arch=$(uname -m)
+  case "$arch" in
+    x86_64|amd64) echo "x86_64" ;;
+    aarch64|arm64) echo "arm64" ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+# ============================================================================
+# DOTFILE REPOSITORY OPERATIONS
+# ============================================================================
+
+dot() {
+  git --git-dir="$DOT_DIR" --work-tree="$HOME" "$@"
+}
+
+init_dotfile_repo() {
+  if [ -d "$DOT_DIR" ]; then
+    warn ".dotfile directory exists, updating instead of cloning"
+    log "Updating dotfile repository..."
+    dot fetch origin >/dev/null 2>&1 || warn "Update failed, using existing version"
+  else
+    if ! git clone --bare "$REPO_URL" "$DOT_DIR" >/dev/null 2>&1; then
+      error "Failed to clone dotfile repository"
+    fi
+  fi
+}
+
+backup_conflicting_files() {
+  local conflicts=()
+  local tracked_files
+
+  log "Checking for conflicting files..."
+  tracked_files="$(dot ls-tree -r --name-only HEAD || true)"
+
+  if [ -n "$tracked_files" ]; then
+    while IFS= read -r file; do
+      [ -n "$file" ] || continue
+      if [ -e "$HOME/$file" ] || [ -L "$HOME/$file" ]; then
+        conflicts+=("$file")
+      fi
+    done <<< "$tracked_files"
+  fi
+
+  if [ "${#conflicts[@]}" -gt 0 ]; then
+    BACKUP_DIR="$HOME/.dotfile_backup_$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "$BACKUP_DIR"
+    warn "Backing up existing files to: $BACKUP_DIR"
+    for file in "${conflicts[@]}"; do
+      if [ -e "$HOME/$file" ] || [ -L "$HOME/$file" ]; then
+        local backup_path="$BACKUP_DIR/$file"
+        mkdir -p "$(dirname "$backup_path")"
+        cp -a "$HOME/$file" "$backup_path"
+        echo "  → $file"
+      fi
+    done
+    log "Backup completed"
+  else
+    log "No conflicting files found"
+  fi
+}
+
+deploy_dotfiles() {
+  info "Deploying dotfiles..."
+  dot checkout -f >/dev/null 2>&1
+  dot config --local status.showUntrackedFiles no
+}
+
+install_shell_alias() {
+  local shell_rc
+  local shell_name
+
+  shell_name="$(basename "${SHELL:-}")"
+
+  case "$shell_name" in
+    zsh) shell_rc="$HOME/.zshrc" ;;
+    bash) shell_rc="$HOME/.bashrc" ;;
+    *) shell_rc="$HOME/.profile" ;;
+  esac
+
+  if ! grep -q "alias $ALIAS_NAME=" "$shell_rc" 2>/dev/null; then
+    echo "alias $ALIAS_NAME='git --git-dir=\$HOME/.dotfile/ --work-tree=\$HOME'" >> "$shell_rc"
+    log "Added '$ALIAS_NAME' alias to $shell_rc"
+  fi
+}
+
+remove_shell_alias() {
+  local rc_file="$1"
+  [ -f "$rc_file" ] || return 0
+
+  if grep -q "alias $ALIAS_NAME='git --git-dir=\$HOME/.dotfile/ --work-tree=\$HOME'" "$rc_file"; then
+    sed -i "\|alias $ALIAS_NAME='git --git-dir=\$HOME/.dotfile/ --work-tree=\$HOME'|d" "$rc_file"
+    log "Removed '$ALIAS_NAME' alias from $rc_file"
+  fi
+}
+
+# ============================================================================
+# PACKAGE INSTALLATION
+# ============================================================================
+
 install_package() {
   local pkg=$1
   local pm=$(detect_package_manager)
 
   if [ -n "$DRY_RUN" ]; then
-    info "[DRY-RUN] 将安装 $pkg (使用 $pm)"
+    info "[DRY-RUN] Would install $pkg (using $pm)"
     return 0
   fi
 
-  # 检查 sudo 权限
   if [[ "$pm" != "brew" ]] && ! check_sudo; then
-    warn_error "需要 sudo 权限来安装 $pkg，跳过..."
+    warn_error "Sudo required for $pkg, skipping..."
     return 1
   fi
 
   case "$pm" in
     apt)
-      sudo apt-get update -qq || return 1
-      sudo apt-get install -y "$pkg" || return 1
+      sudo apt-get update -qq && sudo apt-get install -y "$pkg"
       ;;
     yum|dnf)
-      sudo "$pm" install -y "$pkg" || return 1
+      sudo "$pm" install -y "$pkg"
       ;;
     pacman)
-      sudo pacman -S --noconfirm "$pkg" || return 1
+      sudo pacman -S --noconfirm "$pkg"
       ;;
     brew)
-      brew install "$pkg" || return 1
+      brew install "$pkg"
       ;;
     zypper)
-      sudo zypper install -y "$pkg" || return 1
+      sudo zypper install -y "$pkg"
       ;;
     *)
-      warn_error "无法识别包管理器，请手动安装 $pkg"
+      warn_error "Unrecognized package manager for $pkg"
       return 1
       ;;
   esac
-  return 0
 }
 
 # ============================================================================
-# 工具安装函数
+# TOOL INSTALLATION FUNCTIONS
 # ============================================================================
 
-install_git() {
-  if ! command -v git &> /dev/null; then
-    info "正在安装 git..."
-    if install_package "git"; then
-      log "✓ git 安装完成"
+install_tool() {
+  local tool_name=$1
+  local package_name=${2:-$1}
+  local install_function=${3:-}
+
+  if command -v "$tool_name" &> /dev/null; then
+    log "✓ $tool_name already installed"
+    return 0
+  fi
+
+  info "Installing $tool_name..."
+  if [ -n "$install_function" ]; then
+    if $install_function; then
+      log "✓ $tool_name installation completed"
+      return 0
     else
-      warn_error "✗ git 安装失败"
+      warn_error "✗ $tool_name installation failed"
       return 1
     fi
   else
-    log "✓ git 已安装"
+    if install_package "$package_name"; then
+      log "✓ $tool_name installation completed"
+      return 0
+    else
+      warn_error "✗ $tool_name installation failed"
+      return 1
+    fi
   fi
-  return 0
 }
 
-install_zsh() {
-  if ! command -v zsh &> /dev/null; then
-    info "正在安装 zsh..."
-    if install_package "zsh"; then
-      log "✓ zsh 安装完成"
-    else
-      warn_error "✗ zsh 安装失败"
-      return 1
-    fi
-  else
-    log "✓ zsh 已安装"
+install_oh_my_zsh_custom() {
+  [ ! -d "$HOME/.oh-my-zsh" ] || return 0
+
+  if sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended 2>/dev/null; then
+    return 0
   fi
-  return 0
+  return 1
 }
 
-install_oh_my_zsh() {
-  if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    info "正在安装 oh-my-zsh..."
-    if sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended 2>/dev/null; then
-      log "✓ oh-my-zsh 安装完成"
-    else
-      warn_error "✗ oh-my-zsh 安装失败"
-      return 1
-    fi
-  else
-    log "✓ oh-my-zsh 已安装"
+install_zsh_plugin() {
+  local plugin_name=$1
+  local plugin_url=$2
+  local plugins_dir="$HOME/.oh-my-zsh/custom/plugins"
+
+  mkdir -p "$plugins_dir"
+
+  if [ -d "$plugins_dir/$plugin_name" ]; then
+    log "✓ $plugin_name already installed"
+    return 0
   fi
-  return 0
+
+  info "Installing $plugin_name..."
+  if git clone "$plugin_url" "$plugins_dir/$plugin_name" 2>/dev/null; then
+    log "✓ $plugin_name installation completed"
+    return 0
+  else
+    warn_error "✗ $plugin_name installation failed"
+    return 1
+  fi
 }
 
 install_zsh_plugins() {
-  local plugins_dir="$HOME/.oh-my-zsh/custom/plugins"
-  mkdir -p "$plugins_dir"
-
-  # zsh-autosuggestions
-  if [ ! -d "$plugins_dir/zsh-autosuggestions" ]; then
-    info "正在安装 zsh-autosuggestions..."
-    if git clone https://github.com/zsh-users/zsh-autosuggestions "$plugins_dir/zsh-autosuggestions" 2>/dev/null; then
-      log "✓ zsh-autosuggestions 安装完成"
-    else
-      warn_error "✗ zsh-autosuggestions 安装失败"
-    fi
-  else
-    log "✓ zsh-autosuggestions 已安装"
-  fi
-
-  # zsh-syntax-highlighting
-  if [ ! -d "$plugins_dir/zsh-syntax-highlighting" ]; then
-    info "正在安装 zsh-syntax-highlighting..."
-    if git clone https://github.com/zsh-users/zsh-syntax-highlighting "$plugins_dir/zsh-syntax-highlighting" 2>/dev/null; then
-      log "✓ zsh-syntax-highlighting 安装完成"
-    else
-      warn_error "✗ zsh-syntax-highlighting 安装失败"
-    fi
-  else
-    log "✓ zsh-syntax-highlighting 已安装"
-  fi
-  return 0
+  install_zsh_plugin "zsh-autosuggestions" "https://github.com/zsh-users/zsh-autosuggestions"
+  install_zsh_plugin "zsh-syntax-highlighting" "https://github.com/zsh-users/zsh-syntax-highlighting"
 }
 
-install_zoxide() {
-  if ! command -v zoxide &> /dev/null; then
-    info "正在安装 zoxide..."
-    local pm=$(detect_package_manager)
-    local installed=false
+install_zoxide_custom() {
+  local pm=$(detect_package_manager)
 
-    case "$pm" in
-      apt)
-        if curl -fsSL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash 2>/dev/null; then
-          installed=true
-        fi
-        ;;
-      brew)
-        if brew install zoxide 2>/dev/null; then
-          installed=true
-        fi
-        ;;
-      *)
-        # 尝试使用 cargo 安装
-        if command -v cargo &> /dev/null; then
-          if cargo install zoxide 2>/dev/null; then
-            installed=true
-          fi
-        fi
-        ;;
-    esac
-
-    if [ "$installed" = true ]; then
-      log "✓ zoxide 安装完成"
-    else
-      warn_error "✗ zoxide 安装失败，请手动安装"
-      return 1
-    fi
-  else
-    log "✓ zoxide 已安装"
-  fi
-  return 0
+  case "$pm" in
+    apt)
+      curl -fsSL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash 2>/dev/null
+      ;;
+    brew)
+      brew install zoxide 2>/dev/null
+      ;;
+    *)
+      if command -v cargo &> /dev/null; then
+        cargo install zoxide 2>/dev/null
+      else
+        return 1
+      fi
+      ;;
+  esac
 }
 
-install_fzf() {
-  if ! command -v fzf &> /dev/null; then
-    info "正在安装 fzf..."
-    local pm=$(detect_package_manager)
-    local installed=false
+install_fzf_custom() {
+  local pm=$(detect_package_manager)
 
-    case "$pm" in
-      apt)
-        if install_package "fzf" 2>/dev/null; then
-          installed=true
+  case "$pm" in
+    apt)
+      install_package "fzf" 2>/dev/null
+      ;;
+    brew)
+      brew install fzf 2>/dev/null
+      ;;
+    *)
+      if [ ! -d "$HOME/.fzf" ]; then
+        if git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf" 2>/dev/null; then
+          "$HOME/.fzf/install" --all 2>/dev/null
         fi
-        ;;
-      brew)
-        if brew install fzf 2>/dev/null; then
-          installed=true
-        fi
-        ;;
-      *)
-        # 使用 git 安装
-        if [ ! -d "$HOME/.fzf" ]; then
-          if git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf" 2>/dev/null; then
-            if "$HOME/.fzf/install" --all 2>/dev/null; then
-              installed=true
-            fi
-          fi
-        fi
-        ;;
-    esac
-
-    if [ "$installed" = true ]; then
-      log "✓ fzf 安装完成"
-    else
-      warn_error "✗ fzf 安装失败"
-      return 1
-    fi
-  else
-    log "✓ fzf 已安装"
-  fi
-  return 0
+      fi
+      ;;
+  esac
 }
 
-install_tmux() {
-  if ! command -v tmux &> /dev/null; then
-    info "正在安装 tmux..."
-    if install_package "tmux"; then
-      log "✓ tmux 安装完成"
-    else
-      warn_error "✗ tmux 安装失败"
-      return 1
-    fi
-  else
-    log "✓ tmux 已安装"
-  fi
-  return 0
-}
-
-install_tpm() {
+install_tpm_custom() {
   local tpm_dir="$HOME/.tmux/plugins/tpm"
-  if [ ! -d "$tpm_dir" ]; then
-    info "正在安装 TPM (Tmux Plugin Manager)..."
-    mkdir -p "$HOME/.tmux/plugins"
-    if git clone https://github.com/tmux-plugins/tpm "$tpm_dir" 2>/dev/null; then
-      log "✓ TPM 安装完成"
-    else
-      warn_error "✗ TPM 安装失败"
-      return 1
-    fi
-  else
-    log "✓ TPM 已安装"
-  fi
-  return 0
-}
 
-install_vim() {
-  if ! command -v vim &> /dev/null; then
-    info "正在安装 vim..."
-    if install_package "vim"; then
-      log "✓ vim 安装完成"
-    else
-      warn_error "✗ vim 安装失败"
-      return 1
-    fi
-  else
-    log "✓ vim 已安装"
-  fi
-  return 0
-}
+  [ -d "$tpm_dir" ] && return 0
 
-# 检测是否为 Ubuntu（而不是 Debian）
-is_ubuntu() {
-  if [ -f /etc/os-release ]; then
-    grep -qi "ubuntu" /etc/os-release 2>/dev/null
-    return $?
+  mkdir -p "$HOME/.tmux/plugins"
+  if git clone https://github.com/tmux-plugins/tpm "$tpm_dir" 2>/dev/null; then
+    return 0
   fi
   return 1
 }
 
 # ============================================================================
-# Neovim 安装辅助函数
+# NEOVIM INSTALLATION
 # ============================================================================
 
-# 获取当前 nvim 版本号
 get_nvim_version() {
   if command -v nvim &> /dev/null; then
-    # 使用更可移植的方式提取版本号
     local version_output=$(nvim --version 2>/dev/null | head -1)
-    # 尝试使用 sed 提取版本号（最可移植）
     local version=$(echo "$version_output" | sed -n 's/.*NVIM v\([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p' 2>/dev/null)
-
-    if [ -n "$version" ]; then
-      echo "$version"
-    else
-      echo "0.0.0"
-    fi
+    echo "${version:-0.0.0}"
   else
     echo "0.0.0"
   fi
 }
 
-# 比较两个版本号（返回 0 如果 v1 >= v2）
 version_ge() {
   local v1=$1
   local v2=$2
 
-  # 验证版本号格式（允许数字和点）
   if ! [[ "$v1" =~ ^[0-9]+(\.[0-9]+)*$ ]] || ! [[ "$v2" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
     return 1
   fi
 
-  # 将版本号拆分为数组
   IFS='.' read -ra v1_parts <<< "$v1"
   IFS='.' read -ra v2_parts <<< "$v2"
 
-  # 获取最大长度
   local max_len=${#v1_parts[@]}
-  if [ ${#v2_parts[@]} -gt $max_len ]; then
-    max_len=${#v2_parts[@]}
-  fi
+  [ ${#v2_parts[@]} -gt $max_len ] && max_len=${#v2_parts[@]}
 
-  # 逐个比较（处理不同长度的版本号）
   for ((i=0; i<max_len; i++)); do
-    # 移除前导零，使用 10 进制（避免八进制误判）
     local n1=$((10#${v1_parts[$i]:-0}))
     local n2=$((10#${v2_parts[$i]:-0}))
     if (( n1 > n2 )); then
@@ -408,23 +408,6 @@ version_ge() {
   return 0
 }
 
-# 检测系统架构
-detect_architecture() {
-  local arch=$(uname -m)
-  case "$arch" in
-    x86_64|amd64)
-      echo "x86_64"
-      ;;
-    aarch64|arm64)
-      echo "arm64"
-      ;;
-    *)
-      echo "unknown"
-      ;;
-  esac
-}
-
-# 获取 Neovim 最新版本号
 get_latest_nvim_version() {
   local api_url="https://api.github.com/repos/neovim/neovim/releases/latest"
   local timeout=10
@@ -439,504 +422,367 @@ get_latest_nvim_version() {
     return 1
   fi
 
-  # 检查是否获取到响应
-  if [ -z "$response" ]; then
-    echo "unknown"
-    return 1
-  fi
+  [ -z "$response" ] && echo "unknown" && return 1
 
-  # 提取版本号（更健壮的正则）
   local version=$(echo "$response" | grep -oE '"tag_name":\s*"v?[0-9]+\.[0-9]+\.[0-9]+"' | sed 's/.*"v\?\([0-9.]*\)".*/\1/' | head -1)
 
-  if [ -z "$version" ]; then
-    echo "unknown"
-    return 1
-  fi
-
-  echo "$version"
+  echo "${version:-unknown}"
 }
 
-# 使用 AppImage 安装 Neovim
 install_nvim_appimage() {
   local arch=$(detect_architecture)
-
-  if [ "$arch" = "unknown" ]; then
-    warn_error "无法检测系统架构"
-    return 1
-  fi
+  [ "$arch" = "unknown" ] && return 1
 
   local latest_version=$(get_latest_nvim_version)
-  if [ "$latest_version" = "unknown" ]; then
-    warn_error "无法获取最新版本信息"
-    return 1
-  fi
+  [ "$latest_version" = "unknown" ] && return 1
 
-  info "正在从 GitHub 下载 Neovim $latest_version (AppImage, $arch)..."
+  info "Downloading Neovim $latest_version (AppImage, $arch)..."
 
   local appimage_url="https://github.com/neovim/neovim/releases/download/v${latest_version}/nvim-linux-${arch}.appimage"
   local temp_file="/tmp/nvim.appimage"
-  local download_success=false
 
-  # 下载 AppImage（使用 -f 参数确保 HTTP 错误时失败）
   if command -v curl &> /dev/null; then
-    if curl -fL --progress-bar "$appimage_url" -o "$temp_file" 2>/dev/null; then
-      download_success=true
-    fi
+    curl -fL --progress-bar "$appimage_url" -o "$temp_file" 2>/dev/null || return 1
   elif command -v wget &> /dev/null; then
-    if wget --progress=bar:force "$appimage_url" -O "$temp_file" 2>/dev/null; then
-      download_success=true
-    fi
+    wget --progress=bar:force "$appimage_url" -O "$temp_file" 2>/dev/null || return 1
   else
-    warn_error "需要 curl 或 wget 来下载 Neovim"
     return 1
   fi
 
-  # 验证下载是否成功
-  if [ "$download_success" != true ] || [ ! -s "$temp_file" ]; then
-    warn_error "下载 Neovim AppImage 失败或文件为空"
-    rm -f "$temp_file"
-    return 1
-  fi
+  [ ! -s "$temp_file" ] && return 1
 
-  # 检查文件大小（AppImage 通常 > 50MB）
   local file_size=$(stat -c%s "$temp_file" 2>/dev/null || stat -f%z "$temp_file" 2>/dev/null)
-  if [ "$file_size" -lt 50000000 ]; then
-    warn_error "下载的文件大小异常（${file_size} bytes），可能不完整"
-    rm -f "$temp_file"
-    return 1
-  fi
+  [ "$file_size" -lt 50000000 ] && return 1
 
-  # 赋予执行权限
   chmod +x "$temp_file"
 
-  # 安装到 /usr/local/bin（需要 sudo）
   if ! check_sudo; then
-    warn_error "需要 sudo 权限来安装 Neovim"
-    rm -f "$temp_file"
     return 1
   fi
 
   if sudo mv "$temp_file" /usr/local/bin/nvim 2>/dev/null; then
-    # 验证 /usr/local/bin 是否在 PATH 中
-    if [[ ":$PATH:" != *":/usr/local/bin:"* ]]; then
-      warn "注意: /usr/local/bin 不在 PATH 中"
-      log "您可能需要运行: export PATH=\"/usr/local/bin:\$PATH\""
-    fi
-
-    # 立即验证 nvim 是否可用
     if /usr/local/bin/nvim --version &>/dev/null; then
-      log "✓ Neovim AppImage 安装完成"
       return 0
-    else
-      warn_error "Neovim 安装成功但无法执行"
-      return 1
     fi
-  else
-    warn_error "安装 Neovim 失败"
-    rm -f "$temp_file"
-    return 1
   fi
+  return 1
 }
 
-# 使用 brew 安装 Neovim（macOS）
 install_nvim_brew() {
-  info "正在使用 brew 安装 Neovim..."
-  if brew install neovim 2>/dev/null; then
-    log "✓ Neovim 安装完成"
-    return 0
-  else
-    warn_error "✗ Neovim 安装失败"
-    return 1
-  fi
+  brew install neovim 2>/dev/null
 }
 
-# 验证 Neovim 版本
 verify_nvim_version() {
   if ! command -v nvim &> /dev/null; then
-    error "Neovim 安装验证失败：nvim 命令不存在"
+    error "Neovim installation verification failed"
   fi
 
   local version=$(get_nvim_version)
-  info "已安装 Neovim 版本: $version"
+  info "Installed Neovim version: $version"
 
   if ! version_ge "$version" "0.9.0"; then
-    error "Neovim 版本过低 ($version < 0.9.0)，LazyVim 需要至少 0.9.0"
+    error "Neovim version too old ($version < 0.9.0)"
   fi
 
-  log "✓ Neovim 版本验证通过 ($version ≥ 0.9.0)"
+  log "✓ Neovim version verified ($version ≥ 0.9.0)"
 }
 
 install_nvim() {
   local os=$(detect_os)
-  local installed=false
+  local current_version=$(get_nvim_version)
 
-  # 检查现有版本
-  if command -v nvim &> /dev/null; then
-    local current_version=$(get_nvim_version)
-    if version_ge "$current_version" "0.9.0"; then
-      log "✓ Neovim 已安装 (版本 $current_version ≥ 0.9.0)"
-      return 0
-    else
-      warn "检测到 Neovim 版本 $current_version < 0.9.0，将自动升级"
-    fi
-  fi
-
-  info "正在安装 Neovim (需要 ≥ 0.9.0)..."
-  echo ""
-
-  # 根据操作系统选择安装方式
-  if [ "$os" = "macos" ]; then
-    # macOS 使用 brew
-    if install_nvim_brew; then
-      installed=true
-    fi
-  else
-    # Linux 使用 AppImage
-    if [ -n "$DRY_RUN" ]; then
-      info "[DRY-RUN] 将从 GitHub 下载 Neovim AppImage"
-      installed=true
-    else
-      if install_nvim_appimage; then
-        installed=true
-      fi
-    fi
-  fi
-
-  if [ "$installed" = true ]; then
-    echo ""
-    # 验证安装的版本
-    if [ -z "$DRY_RUN" ]; then
-      verify_nvim_version
-    fi
+  if version_ge "$current_version" "0.9.0"; then
+    log "✓ Neovim already installed (version $current_version ≥ 0.9.0)"
     return 0
-  else
-    warn_error "✗ Neovim 安装失败"
-    return 1
   fi
+
+  [ "$current_version" != "0.0.0" ] && warn "Detected Neovim $current_version < 0.9.0, upgrading..."
+
+  info "Installing Neovim (requires ≥ 0.9.0)..."
+
+  if [ "$os" = "macos" ]; then
+    install_nvim_brew || return 1
+  else
+    if [ -z "$DRY_RUN" ]; then
+      install_nvim_appimage || return 1
+    fi
+  fi
+
+  [ -z "$DRY_RUN" ] && verify_nvim_version
 }
 
-install_nodejs_npm() {
-  if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
-    info "正在安装 Node.js 和 npm..."
-    local pm=$(detect_package_manager)
-    local installed=false
+install_nodejs_npm_custom() {
+  local pm=$(detect_package_manager)
 
-    case "$pm" in
-      apt)
-        # 使用 NodeSource 仓库安装最新 LTS
-        if check_sudo; then
-          if curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - 2>/dev/null; then
-            if install_package "nodejs" 2>/dev/null; then
-              installed=true
-            fi
-          fi
-        fi
-        ;;
-      brew)
-        if brew install node 2>/dev/null; then
-          installed=true
-        fi
-        ;;
-      *)
-        if install_package "nodejs" 2>/dev/null; then
-          installed=true
-        fi
-        ;;
-    esac
-
-    if [ "$installed" = true ]; then
-      log "✓ Node.js 和 npm 安装完成"
-    else
-      warn_error "✗ Node.js 和 npm 安装失败"
-      return 1
-    fi
-  else
-    log "✓ Node.js 和 npm 已安装"
-  fi
-  return 0
+  case "$pm" in
+    apt)
+      if check_sudo; then
+        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - 2>/dev/null
+        install_package "nodejs"
+      fi
+      ;;
+    brew)
+      brew install node 2>/dev/null
+      ;;
+    *)
+      install_package "nodejs"
+      ;;
+  esac
 }
 
 # ============================================================================
-# 安装验证
+# INSTALLATION VERIFICATION
 # ============================================================================
 
 verify_installation() {
   log ""
-  log "正在验证安装..."
+  log "Verifying installation..."
 
   local failed=0
-
-  # 检查必需工具
   local tools=("git" "zsh" "vim" "nvim" "tmux" "node" "npm")
+
   for tool in "${tools[@]}"; do
     if command -v "$tool" &> /dev/null; then
-      log "  ✓ $tool 已安装"
+      log "  ✓ $tool installed"
     else
-      warn "  ✗ $tool 未安装"
+      warn "  ✗ $tool not installed"
       ((failed++))
     fi
   done
 
-  # 检查目录
-  [ -d "$HOME/.oh-my-zsh" ] && log "  ✓ oh-my-zsh 已安装" || ((failed++))
-  [ -d "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" ] && log "  ✓ zsh-autosuggestions 已安装" || ((failed++))
-  [ -d "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting" ] && log "  ✓ zsh-syntax-highlighting 已安装" || ((failed++))
-  [ -d "$HOME/.tmux/plugins/tpm" ] && log "  ✓ TPM 已安装" || ((failed++))
-
-  command -v zoxide &> /dev/null && log "  ✓ zoxide 已安装" || ((failed++))
-  command -v fzf &> /dev/null && log "  ✓ fzf 已安装" || ((failed++))
+  [ -d "$HOME/.oh-my-zsh" ] && log "  ✓ oh-my-zsh installed" || ((failed++))
+  [ -d "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" ] && log "  ✓ zsh-autosuggestions installed" || ((failed++))
+  [ -d "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting" ] && log "  ✓ zsh-syntax-highlighting installed" || ((failed++))
+  [ -d "$HOME/.tmux/plugins/tpm" ] && log "  ✓ TPM installed" || ((failed++))
+  command -v zoxide &> /dev/null && log "  ✓ zoxide installed" || ((failed++))
+  command -v fzf &> /dev/null && log "  ✓ fzf installed" || ((failed++))
 
   return $failed
 }
 
 # ============================================================================
-# 主安装流程
+# INSTALLATION WORKFLOW
 # ============================================================================
 
-show_help() {
-  cat << EOF
-用法: bash install.sh [选项]
-
-选项:
-  DRY_RUN=1          只显示将要执行的操作，不实际安装
-  SKIP_INSTALL=1     跳过工具安装，只部署 dotfile
-
-环境变量:
-  REPO_URL           dotfile 仓库地址 (默认: https://github.com/nbfhscl/dotfile.git)
-  DOT_DIR            dotfile 存储目录 (默认: \$HOME/.dotfile)
-
-示例:
-  bash install.sh                           # 正常安装
-  DRY_RUN=1 bash install.sh                 # 预览模式
-  SKIP_INSTALL=1 bash install.sh            # 只部署 dotfile
-  curl -fsSL https://raw.githubusercontent.com/.../install.sh | bash
-
-EOF
-}
-
-main() {
-  # 显示帮助
-  if [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
-    show_help
-    exit 0
-  fi
-
+run_installation() {
   echo ""
   echo "=========================================="
-  echo "  Dotfile 自动安装脚本"
+  echo "  Dotfile Installation"
   echo "=========================================="
   echo ""
 
-  if [ -n "$DRY_RUN" ]; then
-    warn "DRY-RUN 模式：只显示将要执行的操作"
-    echo ""
-  fi
+  [ -n "$DRY_RUN" ] && warn "DRY-RUN mode: Previewing operations only" && echo ""
 
-  # 检测平台
   local os=$(detect_os)
   local pm=$(detect_package_manager)
-  log "检测到操作系统: $os"
-  log "检测到包管理器: $pm"
+  log "Detected OS: $os"
+  log "Detected package manager: $pm"
   echo ""
 
-  if [ "$pm" = "unknown" ] || [ "$pm" = "none" ]; then
-    error "无法识别包管理器，安装无法继续"
-  fi
+  [ "$pm" = "unknown" ] || [ "$pm" = "none" ] && error "Unrecognized package manager"
 
-  # 按依赖顺序安装工具
+  # Install tools if not skipped
   if [ -z "$SKIP_INSTALL" ]; then
-    info "开始安装必需工具..."
+    info "Installing required tools..."
     echo ""
 
-    # 跟踪失败的安装
-    declare -a failed_installs=()
+    local -a failed_installs=()
 
-    # 1. 基础工具
-    install_git || failed_installs+=("git")
-    install_zsh || failed_installs+=("zsh")
-    install_vim || failed_installs+=("vim")
+    # Core tools
+    install_tool "git" || failed_installs+=("git")
+    install_tool "zsh" || failed_installs+=("zsh")
+    install_tool "vim" || failed_installs+=("vim")
+    install_tool "node" "nodejs" "install_nodejs_npm_custom" || failed_installs+=("nodejs/npm")
 
-    # 2. Node.js/npm（某些工具可能需要）
-    install_nodejs_npm || failed_installs+=("nodejs/npm")
-
-    # 3. zsh 生态
-    install_oh_my_zsh || failed_installs+=("oh-my-zsh")
+    # Zsh ecosystem
+    install_tool "oh-my-zsh" "oh-my-zsh" "install_oh_my_zsh_custom" || failed_installs+=("oh-my-zsh")
     install_zsh_plugins || failed_installs+=("zsh-plugins")
-    install_zoxide || failed_installs+=("zoxide")
-    install_fzf || failed_installs+=("fzf")
+    install_tool "zoxide" "zoxide" "install_zoxide_custom" || failed_installs+=("zoxide")
+    install_tool "fzf" "fzf" "install_fzf_custom" || failed_installs+=("fzf")
 
-    # 4. tmux 生态
-    install_tmux || failed_installs+=("tmux")
-    install_tpm || failed_installs+=("tpm")
+    # Tmux ecosystem
+    install_tool "tmux" || failed_installs+=("tmux")
+    install_tool "tpm" "tpm" "install_tpm_custom" || failed_installs+=("tpm")
 
-    # 5. neovim
+    # Neovim
     install_nvim || failed_installs+=("nvim")
 
-    # 显示失败的安装
     if [ ${#failed_installs[@]} -gt 0 ]; then
       echo ""
-      warn "以下工具安装失败："
+      warn "Failed to install:"
       for tool in "${failed_installs[@]}"; do
         echo "  - $tool"
       done
       echo ""
     fi
   else
-    log "跳过工具安装 (SKIP_INSTALL=1)"
+    log "Skipping tool installation (SKIP_INSTALL=1)"
     echo ""
   fi
 
+  # Deploy dotfiles
   echo ""
-  info "正在部署 dotfile 仓库..."
-
-  # 检查是否已存在 dotfile 仓库
-  if [ -d "$DOT_DIR" ]; then
-    warn ".dotfile 目录已存在，将更新而非重新克隆"
-    # 使用现有的 dotfile
-    dot() {
-      git --git-dir="$DOT_DIR" --work-tree="$HOME" "$@"
-    }
-    # 拉取最新更新
-    log "正在更新 dotfile 仓库..."
-    dot fetch origin >/dev/null 2>&1 || warn "更新失败，将继续使用现有版本"
-  else
-    # 克隆新的仓库
-    if ! git clone --bare "$REPO_URL" "$DOT_DIR" >/dev/null 2>&1; then
-      error "无法克隆 dotfile 仓库，请检查网络连接或仓库地址"
-    fi
-
-    # 定义 dot 命令函数（避免依赖 alias）
-    dot() {
-      git --git-dir="$DOT_DIR" --work-tree="$HOME" "$@"
-    }
-  fi
-
-  # 定义 dot 命令函数（避免依赖 alias）
-  dot() {
-    git --git-dir="$DOT_DIR" --work-tree="$HOME" "$@"
-  }
-
-  # 检查哪些文件会冲突（不执行 checkout，避免副作用）
-  log "检查文件冲突..."
-  conflicts=()
-  tracked_files="$(dot ls-tree -r --name-only HEAD || true)"
-  if [ -n "$tracked_files" ]; then
-    while IFS= read -r file; do
-      [ -n "$file" ] || continue
-      if [ -e "$HOME/$file" ] || [ -L "$HOME/$file" ]; then
-        conflicts+=("$file")
-      fi
-    done <<< "$tracked_files"
-  fi
-
-  if [ "${#conflicts[@]}" -gt 0 ]; then
-    warn "以下文件已存在，将被备份："
-    mkdir -p "$BACKUP_DIR"
-    for file in "${conflicts[@]}"; do
-      if [ -e "$HOME/$file" ] || [ -L "$HOME/$file" ]; then
-        backup_path="$BACKUP_DIR/$file"
-        mkdir -p "$(dirname "$backup_path")"
-        cp -a "$HOME/$file" "$backup_path"
-        echo "  → $file"
-      fi
-    done
-    log "备份已保存至: $BACKUP_DIR"
-  else
-    log "没有发现冲突文件。"
-  fi
-
-  # 强制检出配置（覆盖本地同名文件）
-  info "正在部署 dotfile..."
-  dot checkout -f >/dev/null 2>&1
-
-  # 隐藏未跟踪文件（避免 status 显示整个家目录）
-  dot config --local status.showUntrackedFiles no
-
-  # 将 alias 写入 shell 配置（支持 zsh/bash）
-  SHELL_RC=""
-  shell_name="$(basename "${SHELL:-}")"
-  if [ "$shell_name" = "zsh" ]; then
-    SHELL_RC="$HOME/.zshrc"
-  elif [ "$shell_name" = "bash" ]; then
-    SHELL_RC="$HOME/.bashrc"
-  else
-    # 默认写入 .profile
-    SHELL_RC="$HOME/.profile"
-  fi
-
-  if ! grep -q "alias $ALIAS_NAME=" "$SHELL_RC" 2>/dev/null; then
-    echo "alias $ALIAS_NAME='git --git-dir=\$HOME/.dotfile/ --work-tree=\$HOME'" >> "$SHELL_RC"
-    log "已添加 'dot' 别名到 $SHELL_RC"
-  fi
+  info "Deploying dotfile repository..."
+  init_dotfile_repo
+  backup_conflicting_files
+  deploy_dotfiles
+  install_shell_alias
 
   echo ""
   echo "=========================================="
-  log "✅ Dotfile 部署完成！"
+  log "✅ Dotfile deployment complete!"
   echo "=========================================="
   echo ""
 
-  # 验证安装
+  # Verify installation
   if verify_installation; then
-    log "所有工具安装成功！"
+    log "All tools installed successfully!"
   else
     local failed_count=$?
-    warn "有 $failed_count 项工具安装失败或未安装"
-    warn "您可以稍后手动安装这些工具"
+    warn "$failed_count tools failed to install"
   fi
 
   echo ""
-  log "后续步骤："
-  echo "  1. 执行 'source $SHELL_RC' 或重启 shell 以使用 'dot' 命令"
-  echo "  2. 将默认 shell 切换为 zsh: chsh -s \$(which zsh)"
-  echo "  3. 启动 tmux 后按 'Ctrl+a I' (大写 I) 安装 tmux 插件"
-  echo "  4. 首次启动 nvim 会自动安装插件，请耐心等待"
+  log "Next steps:"
+  echo "  1. Run 'source ~/.zshrc' or restart shell"
+  echo "  2. Change default shell: chsh -s \$(which zsh)"
+  echo "  3. Install tmux plugins: Press 'Ctrl+a I' in tmux"
+  echo "  4. Open nvim to install plugins automatically"
   echo ""
 
-  # 提供手动安装命令
-  if [ ${#failed_installs[@]} -gt 0 ]; then
-    warn "手动安装失败工具的命令："
-    echo ""
-    for tool in "${failed_installs[@]}"; do
-      case "$tool" in
-        nvim)
-          echo "  # 方法 1: 使用 AppImage（推荐，快速且简单）"
-          echo "  ARCH=\$(uname -m)"
-          echo "  if [ \"\$ARCH\" = \"x86_64\" ] || [ \"\$ARCH\" = \"amd64\" ]; then"
-          echo "    wget https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.appimage"
-          echo "  elif [ \"\$ARCH\" = \"aarch64\" ] || [ \"\$ARCH\" = \"arm64\" ]; then"
-          echo "    wget https://github.com/neovim/neovim/releases/latest/download/nvim-linux-arm64.appimage"
-          echo "  else"
-          echo "    echo \"不支持的架构: \$ARCH\""
-          echo "    exit 1"
-          echo "  fi"
-          echo "  chmod +x nvim-*.appimage"
-          echo "  sudo mv nvim-*.appimage /usr/local/bin/nvim"
-          echo ""
-          echo "  # 方法 2: 使用包管理器（可能版本较旧）"
-          echo "  sudo apt-get update && sudo apt-get install -y neovim"
-          echo ""
-          echo "  # 方法 3: 从源码构建（最灵活，但耗时较长）"
-          echo "  sudo apt-get install -y cmake gettext libtool libtool-bin \\"
-          echo "    autoconf automake g++ pkg-config unzip curl python3-pip"
-          echo "  git clone https://github.com/neovim/neovim.git"
-          echo "  cd neovim && make CMAKE_BUILD_TYPE=RelWithDebInfo"
-          echo "  sudo make install"
-          echo ""
-          ;;
-        nodejs/npm)
-          echo "  # 安装 Node.js 和 npm:"
-          echo "  curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -"
-          echo "  sudo apt-get install -y nodejs"
-          echo ""
-          ;;
-        *)
-          echo "  sudo apt-get install -y $tool"
-          echo ""
-          ;;
-      esac
-    done
+  if [ -n "$BACKUP_DIR" ]; then
+    log "Backup saved to: $BACKUP_DIR"
   fi
 }
 
-# 运行主程序
+# ============================================================================
+# UNINSTALLATION WORKFLOW
+# ============================================================================
+
+run_uninstallation() {
+  echo ""
+  echo "=========================================="
+  echo "  Dotfile Uninstallation"
+  echo "=========================================="
+  echo ""
+
+  command -v git >/dev/null 2>&1 || error "Git is not installed"
+  [ -d "$DOT_DIR" ] || error "No .dotfile repository found at $DOT_DIR"
+  dot rev-parse --is-bare-repository >/dev/null 2>&1 || error "Invalid bare repository at $DOT_DIR"
+
+  log "Collecting tracked files..."
+  local tracked_files
+  tracked_files="$(dot ls-tree -r --name-only HEAD || true)"
+
+  if [ -n "$tracked_files" ]; then
+    if [ -z "$NO_BACKUP" ]; then
+      BACKUP_DIR="$HOME/.dotfile_uninstall_backup_$(date +%Y%m%d_%H%M%S)"
+      mkdir -p "$BACKUP_DIR"
+      log "Backing up to: $BACKUP_DIR"
+    fi
+
+    while IFS= read -r file; do
+      [ -n "$file" ] || continue
+      local src="$HOME/$file"
+      if [ -e "$src" ] || [ -L "$src" ]; then
+        if [ -z "$NO_BACKUP" ]; then
+          local dst="$BACKUP_DIR/$file"
+          mkdir -p "$(dirname "$dst")"
+          cp -a "$src" "$dst"
+        fi
+        rm -rf "$src"
+        echo "  → removed $file"
+      fi
+    done <<< "$tracked_files"
+  else
+    warn "No tracked files found"
+  fi
+
+  log "Removing bare repository..."
+  rm -rf "$DOT_DIR"
+
+  remove_shell_alias "$HOME/.zshrc"
+  remove_shell_alias "$HOME/.bashrc"
+  remove_shell_alias "$HOME/.profile"
+
+  echo ""
+  log "Dotfile uninstalled successfully"
+  if [ -n "$BACKUP_DIR" ]; then
+    log "Backup saved to: $BACKUP_DIR"
+  fi
+  echo ""
+}
+
+# ============================================================================
+# HELP AND USAGE
+# ============================================================================
+
+show_help() {
+  cat << EOF
+Usage: bash $SCRIPT_NAME <action> [options]
+
+Actions:
+  install     Install dotfiles and required tools
+  uninstall   Remove dotfiles (creates backup by default)
+
+Install Options:
+  DRY_RUN=1        Preview operations without executing
+  SKIP_INSTALL=1   Deploy dotfiles only, skip tool installation
+
+Uninstall Options:
+  NO_BACKUP=1      Skip creating backup before removal
+
+Environment Variables:
+  REPO_URL         Dotfile repository URL
+  DOT_DIR          Dotfile storage directory (default: \$HOME/.dotfile)
+
+Examples:
+  # Install everything
+  bash $SCRIPT_NAME install
+
+  # Preview installation
+  DRY_RUN=1 bash $SCRIPT_NAME install
+
+  # Deploy dotfiles only
+  SKIP_INSTALL=1 bash $SCRIPT_NAME install
+
+  # Uninstall with backup
+  bash $SCRIPT_NAME uninstall
+
+  # Uninstall without backup
+  NO_BACKUP=1 bash $SCRIPT_NAME uninstall
+
+EOF
+}
+
+# ============================================================================
+# MAIN ENTRY POINT
+# ============================================================================
+
+main() {
+  case "${1:-}" in
+    install)
+      ACTION="install"
+      ;;
+    uninstall)
+      ACTION="uninstall"
+      ;;
+    -h|--help|help|"")
+      show_help
+      exit 0
+      ;;
+    *)
+      error "Unknown action: ${1:-}
+Use 'install' or 'uninstall'
+Run '$SCRIPT_NAME --help' for usage information"
+      ;;
+  esac
+
+  if [ "$ACTION" = "install" ]; then
+    run_installation
+  elif [ "$ACTION" = "uninstall" ]; then
+    run_uninstallation
+  fi
+}
+
 main "$@"

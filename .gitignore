@@ -55,3 +55,4 @@
 
 # 备份目录（由 install.sh 生成）
 .dotfiles_backup_*/
+.backup/
