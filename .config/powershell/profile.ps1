@@ -1,19 +1,27 @@
 # ============================================
-# PowerShell 7 配置
+# PowerShell 7 Configuration
 # ============================================
 
-# Oh-My-Posh 主题引擎
+# Oh-My-Posh Theme Engine
 $env:POSH_THEMES_PATH = "$env:USERPROFILE\.poshthemes"
 if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
-    oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\paradox.omp.json" | Invoke-Expression
+    # Try to use a custom theme, fall back to built-in theme
+    $customTheme = "$env:POSH_THEMES_PATH\simple.omp.json"
+    if (Test-Path $customTheme) {
+        oh-my-posh init pwsh --config $customTheme | Invoke-Expression
+    } else {
+        # Use built-in theme as fallback
+        oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\jandedobbeleer.omp.json" | Invoke-Expression
+    }
 }
 
-# PSReadLine
+# PSReadLine - Compatible with version 2.0.0+
 if (Get-Module -ListAvailable -Name PSReadLine) {
     Import-Module PSReadLine
-    Set-PSReadLineOption -PredictionSource History
-    Set-PSReadLineOption -PredictionViewStyle ListView
+    # Basic key bindings that work with all PSReadLine versions
     Set-PSReadLineKeyHandler -Key "Tab" -Function MenuComplete
+    Set-PSReadLineKeyHandler -Key "Ctrl+d" -Function DeleteChar
+    Set-PSReadLineKeyHandler -Key "Ctrl+w" -Function BackwardDeleteWord
 }
 
 # Terminal-Icons
@@ -32,17 +40,16 @@ if (Get-Module -ListAvailable -Name PSFzf) {
     Set-PsFzfOption -PSReadlineChordProvider Ctrl+t -PsReadlineChordReverseHistory Ctrl+r
 }
 
-# dotfile 管理
+# dotfile management
 function dot {
     git --git-dir="$env:USERPROFILE\.dotfile" --work-tree="$env:USERPROFILE" $args
 }
 
-# 别名
+# Aliases (avoiding conflicts with built-in aliases)
 Set-Alias ll Get-ChildItem
 Set-Alias grep Select-String
-Set-Alias cat Get-Content
 
-# 自定义函数
-function Edit-Profile { & $EDITOR $PROFILE.CurrentUserCurrentHost }
+# Custom functions
+function Edit-Profile { & $env:EDITOR $PROFILE.CurrentUserCurrentHost }
 function Reload-Profile { . $PROFILE.CurrentUserCurrentHost }
 function Show-Env { Get-ChildItem Env: | Format-Table -AutoSize }

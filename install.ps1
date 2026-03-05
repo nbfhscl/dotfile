@@ -246,11 +246,31 @@ function Install-OhMyPosh {
         & winget install --id JanDeDobbeleer.OhMyPosh -e --accept-source-agreements --accept-package-agreements 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
             Write-Success "Oh-My-Posh installation completed"
-            return $true
+
+            # Refresh environment variables after installation
+            $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+            $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+            $env:Path = $machinePath + ";" + $userPath
+
+            # Verify the command is available
+            if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
+                Write-Success "Oh-My-Posh command verified"
+                return $true
+            } else {
+                Write-Warning "Oh-My-Posh installed but command not found in PATH. You may need to restart your shell."
+                return $true
+            }
         } else {
             # Fallback: use PowerShell module
-            Install-Module -Name oh-my-posh -Force -Scope CurrentUser -AllowClobber
-            return $true
+            Write-Warning "Winget installation failed, trying PowerShell module..."
+            try {
+                Install-Module -Name oh-my-posh -Force -Scope CurrentUser -AllowClobber -ErrorAction Stop
+                Write-Success "Oh-My-Posh installed via PowerShell module"
+                return $true
+            } catch {
+                Write-Error "Oh-My-Posh PowerShell module installation also failed: $_"
+                return $false
+            }
         }
     } catch {
         Write-Error "Oh-My-Posh installation failed: $_"
@@ -276,6 +296,17 @@ function Install-PSModules {
         try {
             Install-Module -Name $moduleName -Force -Scope CurrentUser -AllowClobber -ErrorAction Stop
             Write-Success "$moduleName installation completed"
+
+            # Special handling for PSReadLine - update to version 2.0.0+ for compatibility
+            if ($moduleName -eq "PSReadLine") {
+                Write-Info "Updating PSReadLine to latest version for compatibility..."
+                try {
+                    Update-Module -Name PSReadLine -Force -ErrorAction Stop
+                    Write-Success "PSReadLine updated successfully"
+                } catch {
+                    Write-Warning "PSReadLine update failed (optional): $_"
+                }
+            }
         } catch {
             if ($required) {
                 Write-Error "$moduleName installation failed: $_"
@@ -293,6 +324,188 @@ function Install-Zoxide {
     }
     Write-Info "Installing zoxide..."
     Install-Package -PackageName "zoxide" -WingetId "ajeetdsouza.zoxide" -Required:$false
+}
+
+# ============================================
+# Oh-My-Posh Theme Configuration
+# ============================================
+
+function Initialize-PoshThemesDirectory {
+    <#
+    .SYNOPSIS
+        Create and initialize the .poshthemes directory
+
+    .DESCRIPTION
+        Creates the .poshthemes directory in the user's profile if it doesn't exist
+        and ensures it's properly configured
+    #>
+    Write-Info "Initializing Oh-My-Posh themes directory..."
+    $poshThemesDir = "$env:USERPROFILE\.poshthemes"
+
+    if (-not (Test-Path $poshThemesDir)) {
+        try {
+            New-Item -ItemType Directory -Path $poshThemesDir -Force | Out-Null
+            Write-Success "Created .poshthemes directory at: $poshThemesDir"
+            return $true
+        } catch {
+            Write-Error "Failed to create .poshthemes directory: $_"
+            return $false
+        }
+    } else {
+        Write-Success ".poshthemes directory already exists"
+        return $true
+    }
+}
+
+function Get-DefaultThemeContent {
+    <#
+    .SYNOPSIS
+        Returns the JSON content for a simple default Oh-My-Posh theme
+
+    .DESCRIPTION
+        Generates a clean, simple theme JSON that works well on Windows
+    #>
+    return @"
+{
+  "`$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
+  "final_space": true,
+  "version": 2,
+  "blocks": [
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "segments": [
+        {
+          "type": "root",
+          "style": "plain",
+          "foreground": "#ff5555",
+          "template": " "
+        },
+        {
+          "type": "session",
+          "style": "plain",
+          "foreground": "#ffffff",
+          "template": "{{ .UserName }}@{{ .HostName }} "
+        },
+        {
+          "type": "path",
+          "style": "plain",
+          "foreground": "#61afef",
+          "template": "{{ .Path }} ",
+          "properties": {
+            "style": "full"
+          }
+        },
+        {
+          "type": "git",
+          "style": "plain",
+          "foreground": "#98c379",
+          "template": "{{ .HEAD }}{{ .BranchStatus }} ",
+          "properties": {
+            "branch_icon": "",
+            "commit_icon": "@",
+            "tag_icon": "#"
+          }
+        }
+      ]
+    },
+    {
+      "type": "prompt",
+      "alignment": "right",
+      "segments": [
+        {
+          "type": "node",
+          "style": "plain",
+          "foreground": "#689f63",
+          "template": "  {{ if .Error }}{{ .Error }}{{ else }}{{ if .Version }}v{{ .Version }}{{ end }}{{ end }} ",
+          "properties": {
+            "display_mode": "files",
+            "fetch_version": true
+          }
+        },
+        {
+          "type": "python",
+          "style": "plain",
+          "foreground": "#e06c75",
+          "template": "  {{ if .Error }}{{ .Error }}{{ else }}{{ if .Venv }}{{ .Venv }} {{ end }}{{ if .Version }}v{{ .Version }}{{ end }}{{ end }} ",
+          "properties": {
+            "display_mode": "files",
+            "fetch_version": true
+          }
+        }
+      ]
+    }
+  ],
+  "newline": true
+}
+"@
+}
+
+function Deploy-DefaultTheme {
+    <#
+    .SYNOPSIS
+        Deploy a default Oh-My-Posh theme to the .poshthemes directory
+
+    .DESCRIPTION
+        Creates a simple.omp.json theme file in the .poshthemes directory
+        if it doesn't already exist
+    #>
+    Write-Info "Deploying default Oh-My-Posh theme..."
+    $themePath = "$env:USERPROFILE\.poshthemes\simple.omp.json"
+
+    if (Test-Path $themePath) {
+        Write-Success "Theme file already exists: $themePath"
+        return $true
+    }
+
+    try {
+        # First ensure the directory exists
+        if (-not (Initialize-PoshThemesDirectory)) {
+            Write-Warning "Failed to initialize .poshthemes directory"
+            return $false
+        }
+
+        # Write the default theme
+        Get-DefaultThemeContent | Out-File -FilePath $themePath -Encoding utf8
+        Write-Success "Default theme created at: $themePath"
+        return $true
+    } catch {
+        Write-Error "Failed to create default theme: $_"
+        return $false
+    }
+}
+
+function Get-BuiltinThemes {
+    <#
+    .SYNOPSIS
+        Try to download or use built-in Oh-My-Posh themes
+
+    .DESCRIPTION
+        Attempts to use oh-my-posh to get the themes cache path and
+        downloads themes if needed
+    #>
+    Write-Info "Checking for built-in Oh-My-Posh themes..."
+
+    if (-not (Get-Command oh-my-posh -ErrorAction SilentlyContinue)) {
+        Write-Warning "Oh-My-Posh not installed, skipping built-in themes"
+        return $false
+    }
+
+    try {
+        # Try to get the cache path where themes are stored
+        $cachePath = & oh-my-posh cache path 2>$null
+
+        if ($cachePath -and (Test-Path $cachePath)) {
+            Write-Success "Oh-My-Posh cache path: $cachePath"
+            return $true
+        } else {
+            Write-Warning "Could not determine Oh-My-Posh cache path"
+            return $false
+        }
+    } catch {
+        Write-Warning "Failed to get Oh-My-Posh theme information: $_"
+        return $false
+    }
 }
 
 # ============================================
@@ -434,8 +647,70 @@ function Deploy-PowerShellProfile {
         Write-Info "Deploying profile from dotfile..."
         Copy-Item $sourceProfile $profilePath -Force
     } else {
-        Write-Warning "Profile not found in dotfile, skipping"
+        Write-Warning "Profile not found in dotfile, creating default profile..."
+        # Create a minimal default profile
+        $defaultProfile = @"
+# ============================================
+# PowerShell 7 Configuration
+# ============================================
+
+# Oh-My-Posh Theme Engine
+`$env:POSH_THEMES_PATH = "`$env:USERPROFILE\.poshthemes"
+if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
+    # Try to use a custom theme, fall back to built-in theme
+    `$customTheme = "`$env:POSH_THEMES_PATH\simple.omp.json"
+    if (Test-Path `$customTheme) {
+        oh-my-posh init pwsh --config `$customTheme | Invoke-Expression
+    } else {
+        # Use built-in theme as fallback
+        oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\jandedobbeleer.omp.json" | Invoke-Expression
     }
+}
+
+# PSReadLine - Compatible with version 2.0.0+
+if (Get-Module -ListAvailable -Name PSReadLine) {
+    Import-Module PSReadLine
+    # Basic key bindings that work with all PSReadLine versions
+    Set-PSReadLineKeyHandler -Key "Tab" -Function MenuComplete
+    Set-PSReadLineKeyHandler -Key "Ctrl+d" -Function DeleteChar
+    Set-PSReadLineKeyHandler -Key "Ctrl+w" -Function BackwardDeleteWord
+}
+
+# Terminal-Icons
+if (Get-Module -ListAvailable -Name Terminal-Icons) {
+    Import-Module Terminal-Icons
+}
+
+# zoxide
+if (Get-Command zoxide -ErrorAction SilentlyContinue) {
+    Invoke-Expression (& { (zoxide init powershell | Out-String) })
+}
+
+# PSFzf
+if (Get-Module -ListAvailable -Name PSFzf) {
+    Import-Module PSFzf
+    Set-PsFzfOption -PSReadlineChordProvider Ctrl+t -PsReadlineChordReverseHistory Ctrl+r
+}
+
+# dotfile management
+function dot {
+    git --git-dir="`$env:USERPROFILE\.dotfile" --work-tree="`$env:USERPROFILE" `$args
+}
+
+# Aliases (avoiding conflicts with built-in aliases)
+Set-Alias ll Get-ChildItem
+Set-Alias grep Select-String
+
+# Custom functions
+function Edit-Profile { & `$env:EDITOR `$PROFILE.CurrentUserCurrentHost }
+function Reload-Profile { . `$PROFILE.CurrentUserCurrentHost }
+function Show-Env { Get-ChildItem Env: | Format-Table -AutoSize }
+"@
+        $defaultProfile | Out-File -FilePath $profilePath -Encoding utf8
+    }
+
+    # Ensure the theme directory and default theme are deployed
+    Deploy-DefaultTheme
 
     Write-Success "PowerShell Profile configuration completed"
     Write-Info "Please run '. \$PROFILE' or restart PowerShell to apply configuration"
@@ -575,6 +850,14 @@ function Install-AllTools {
     Install-OhMyPosh
     Install-PSModules
     Install-Zoxide
+
+    # Configure Oh-My-Posh themes
+    Write-Info "=========================================="
+    Write-Info "Configuring Oh-My-Posh themes"
+    Write-Info "=========================================="
+    Initialize-PoshThemesDirectory
+    Deploy-DefaultTheme
+    Get-BuiltinThemes
 
     Write-Success "=========================================="
     Write-Success "Development tools installation completed"
