@@ -73,6 +73,17 @@ detect_os() {
   fi
 }
 
+# Cross-platform sed in-place edit
+sed_inplace() {
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS BSD sed requires empty string for backup suffix
+    sed -i "" "$@"
+  else
+    # GNU sed (Linux)
+    sed -i "$@"
+  fi
+}
+
 detect_package_manager() {
   local os=$(detect_os)
 
@@ -200,7 +211,7 @@ remove_shell_alias() {
   [ -f "$rc_file" ] || return 0
 
   if grep -q "alias $ALIAS_NAME='git --git-dir=\$HOME/.dotfile/ --work-tree=\$HOME'" "$rc_file"; then
-    sed -i "\|alias $ALIAS_NAME='git --git-dir=\$HOME/.dotfile/ --work-tree=\$HOME'|d" "$rc_file"
+    sed_inplace "\|alias $ALIAS_NAME='git --git-dir=\$HOME/.dotfile/ --work-tree=\$HOME'|d" "$rc_file"
     log "Removed '$ALIAS_NAME' alias from $rc_file"
   fi
 }

@@ -7,14 +7,17 @@
 使用 Bash 安装脚本：
 
 ```bash
-# 方式 1: 直接运行
-./install.sh
+# 方式 1: 直接运行（安装 dotfile + 工具）
+bash install.sh install
 
-# 方式 2: 预览模式
-./install.sh --dry-run
+# 方式 2: 预览模式（不执行实际操作）
+DRY_RUN=1 bash install.sh install
 
-# 方式 3: 只部署 dotfile
-./install.sh --only-dotfile
+# 方式 3: 只部署 dotfile（跳过工具安装）
+SKIP_INSTALL=1 bash install.sh install
+
+# 卸载
+bash install.sh uninstall
 ```
 
 ## Windows 安装
