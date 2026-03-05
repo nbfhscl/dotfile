@@ -1,10 +1,12 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Windows development environment auto-install script
+    Windows development environment installer and uninstaller
 
 .DESCRIPTION
-    Automatically install and configure Windows development tools including:
+    This script manages both installation and uninstallation of dotfile configurations.
+
+    INSTALLATION: Automatically install and configure Windows development tools including:
     - Windows Terminal, PowerShell 7
     - Git, Node.js, Neovim
     - Oh-My-Posh, PSReadLine and other enhancement tools
@@ -12,17 +14,22 @@
 
     Usage (one-click install): irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1 | iex
 
-.EXAMPLE
-    .\install.ps1
+    UNINSTALLATION: Clean removal of dotfile configurations while keeping tools intact.
 
 .EXAMPLE
-    .\install.ps1 -SkipTools -OnlyDotfile
+    .\install.ps1                               # Full installation
 
 .EXAMPLE
-    irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1 | iex
+    .\install.ps1 -SkipTools                    # Skip tools, only deploy dotfile
 
 .EXAMPLE
-    irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1 | iex; .\install.ps1 -OnlyDotfile
+    .\install.ps1 -OnlyDotfile                  # Only deploy dotfile, no tools
+
+.EXAMPLE
+    .\install.ps1 -Uninstall                    # Remove dotfile configurations
+
+.EXAMPLE
+    .\install.ps1 -DryRun                       # Show what would be done
 
 .PARAMETER SkipTools
     Skip tool installation, only deploy dotfile
@@ -32,14 +39,32 @@
 
 .PARAMETER DryRun
     Dry run mode, only show what will be executed
+
+.PARAMETER Uninstall
+    Remove dotfile configuration
 #>
 
 [CmdletBinding()]
 param(
     [switch]$SkipTools = $false,
     [switch]$OnlyDotfile = $false,
-    [switch]$DryRun = $false
+    [switch]$DryRun = $false,
+    [switch]$Uninstall = $false
 )
+
+# Handle uninstall mode
+if ($Uninstall) {
+    Write-Info "Starting uninstallation..."
+    $uninstallScript = Join-Path $ScriptDir "scripts\Quick-Uninstall.ps1"
+
+    if (Test-Path $uninstallScript) {
+        & $uninstallScript
+    } else {
+        Write-Error "Uninstall script not found: $uninstallScript"
+        exit 1
+    }
+    exit 0
+}
 
 # If OnlyDotfile is specified, automatically set SkipTools
 if ($OnlyDotfile) {
