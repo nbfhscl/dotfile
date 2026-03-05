@@ -1,0 +1,363 @@
+﻿{
+    "OfflineDeployment":  {
+                              "ConfigDirectory":  "config",
+                              "CompressionFormat":  "zip",
+                              "ScriptsDirectory":  "scripts",
+                              "RuntimesDirectory":  "runtimes",
+                              "RuntimePaths":  {
+                                                   "VCRedist2022":  "runtimes\\vc-redist-2022"
+                                               },
+                              "ModulePaths":  {
+                                                  "TerminalIcons":  "modules\\terminal-icons",
+                                                  "PSFzf":  "modules\\psfzf",
+                                                  "PSReadLine":  "modules\\psreadline"
+                                              },
+                              "PackageName":  "devtools-offline",
+                              "ToolsDirectory":  "tools",
+                              "ModulesDirectory":  "modules",
+                              "DocumentationDirectory":  "documentation",
+                              "OfflinePaths":  {
+                                                   "NodeJS":  "tools\\nodejs",
+                                                   "DockerDesktop":  "tools\\docker-desktop",
+                                                   "DotNetSDK":  "tools\\dotnet-sdk",
+                                                   "OhMyPosh":  "tools\\oh-my-posh",
+                                                   "VSCode":  "tools\\vscode",
+                                                   "WindowsTerminal":  "tools\\windows-terminal",
+                                                   "PowerShell":  "tools\\powershell",
+                                                   "Python":  "tools\\python",
+                                                   "Git":  "tools\\git",
+                                                   "Neovim":  "tools\\neovim"
+                                               },
+                              "OutputDir":  ".\\offline-package"
+                          },
+    "Version":  "1.0.0",
+    "Logging":  {
+                    "DateFormat":  "yyyyMMdd",
+                    "CompressOldLogs":  true,
+                    "LogDirectory":  "C:\\Users\\ADMIN\\.dotfile\\logs",
+                    "LogNameFormat":  "{0}_{1}.log",
+                    "MaxLogSizeMB":  10,
+                    "DebugMode":  false,
+                    "TimestampFormat":  "yyyy-MM-dd HH:mm:ss",
+                    "MaxLogAgeDays":  30,
+                    "DefaultLevel":  "Info",
+                    "VerboseMode":  false
+                },
+    "Runtimes":  {
+                     "VCRedist2022":  {
+                                          "Name":  "VC++ Redistributable 2022",
+                                          "Description":  "Visual C++ libraries runtime",
+                                          "DownloadUrl":  "https://aka.ms/vs/17/release/vc_redist.x64.exe",
+                                          "Required":  true,
+                                          "Category":  "Runtime",
+                                          "DisplayName":  "Microsoft Visual C++ 2015-2022 Redistributable (x64)"
+                                      }
+                 },
+    "OneClickInstall":  {
+                            "RepositoryUrl":  "https://github.com/nbfhscl/dotfile.git",
+                            "IssuesUrl":  "https://github.com/nbfhscl/dotfile/issues",
+                            "IncludeToolInstall":  true,
+                            "DocumentationUrl":  "https://github.com/nbfhscl/dotfile",
+                            "IncludeDotfileDeploy":  true,
+                            "DefaultBranch":  "master",
+                            "InstallScriptUrl":  "https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1"
+                        },
+    "LastUpdated":  "2025-01-06",
+    "Modules":  {
+                    "TerminalIcons":  {
+                                          "ImportName":  "Terminal-Icons",
+                                          "Description":  "Glyph icons for PowerShell files and folders",
+                                          "Name":  "Terminal-Icons",
+                                          "MinVersion":  "0.7.0",
+                                          "Required":  true
+                                      },
+                    "PSFzf":  {
+                                  "ImportName":  "PSFzf",
+                                  "Description":  "Fuzzy finder integration for PowerShell",
+                                  "Name":  "PSFzf",
+                                  "MinVersion":  "2.2.0",
+                                  "Required":  true
+                              },
+                    "PSReadLine":  {
+                                       "ImportName":  "PSReadLine",
+                                       "Description":  "Improved command-line editing experience",
+                                       "Name":  "PSReadLine",
+                                       "MinVersion":  "2.2.0",
+                                       "Required":  true
+                                   }
+                },
+    "Paths":  {
+                  "PowerShellProfileDir":  "C:\\Users\\ADMIN\\Documents\\WindowsPowerShell",
+                  "PowerShellProfile":  "C:\\Users\\ADMIN\\Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
+                  "WindowsTerminalSettings":  "C:\\Users\\ADMIN\\AppData\\Local\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json",
+                  "VimDirectory":  "C:\\Users\\ADMIN\\.vim",
+                  "OhMyPoshDefaultTheme":  "C:\\Users\\ADMIN\\.poshthemes\\simple.omp.json",
+                  "GitConfig":  "C:\\Users\\ADMIN\\.gitconfig",
+                  "PowerShellConfigPath":  "C:\\Users\\ADMIN\\.local\\config\\powershell",
+                  "NeovimConfig":  "C:\\Users\\ADMIN\\.local\\config\\nvim",
+                  "GitIgnore":  "C:\\Users\\ADMIN\\.gitignore",
+                  "NeovimData":  "C:\\Users\\ADMIN\\.local\\data\\vim-data",
+                  "OhMyPoshThemesPath":  "C:\\Users\\ADMIN\\.poshthemes",
+                  "VimConfig":  "C:\\Users\\ADMIN\\.vimrc",
+                  "NeovimRuntime":  "C:\\Users\\ADMIN\\.local\\data\\vim-data\\vimfiles"
+              },
+    "Tools":  {
+                  "NodeJS":  {
+                                 "Category":  "Development",
+                                 "DisplayName":  "Node.js LTS",
+                                 "Required":  true,
+                                 "VerificationCommand":  "node --version",
+                                 "Dependencies":  [
+                                                      "VCRedist2022"
+                                                  ],
+                                 "InstallScript":  "winget install --id OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements -e",
+                                 "Name":  "Node.js",
+                                 "DownloadUrl":  "https://nodejs.org/",
+                                 "Description":  "JavaScript runtime and npm package manager",
+                                 "Command":  "node",
+                                 "SecondaryCommands":  [
+                                                           "npm"
+                                                       ],
+                                 "WingetId":  "OpenJS.NodeJS.LTS",
+                                 "MinVersion":  "18.17.0"
+                             },
+                  "DockerDesktop":  {
+                                        "DownloadUrl":  "https://www.docker.com/products/docker-desktop/",
+                                        "SizeWarning":  "Large package (~1GB)",
+                                        "WingetId":  "Docker.DockerDesktop",
+                                        "Category":  "Development",
+                                        "Command":  "docker",
+                                        "Name":  "Docker Desktop",
+                                        "Required":  false,
+                                        "Description":  "Container platform for development",
+                                        "InstallScript":  "winget install --id Docker.DockerDesktop --accept-source-agreements --accept-package-agreements -e",
+                                        "Dependencies":  [
+
+                                                         ],
+                                        "DisplayName":  "Docker Desktop"
+                                    },
+                  "Zoxide":  {
+                                 "DownloadUrl":  "https://github.com/ajeetdsouza/zoxide",
+                                 "Description":  "A faster way to navigate your filesystem",
+                                 "WingetId":  "ajeetdsouza.zoxide",
+                                 "Category":  "Productivity",
+                                 "Command":  "zoxide",
+                                 "Name":  "Zoxide",
+                                 "Required":  false,
+                                 "InstallScript":  "winget install --id ajeetdsouza.zoxide --accept-source-agreements --accept-package-agreements -e",
+                                 "Dependencies":  [
+
+                                                  ],
+                                 "DisplayName":  "Zoxide"
+                             },
+                  "DotNetSDK":  {
+                                    "VerificationCommand":  "dotnet --version",
+                                    "DownloadUrl":  "https://dotnet.microsoft.com/download",
+                                    "Description":  ".NET development framework and SDK",
+                                    "WingetId":  "Microsoft.DotNet.SDK.8",
+                                    "Category":  "Development",
+                                    "Command":  "dotnet",
+                                    "Name":  "DotNetSDK",
+                                    "Required":  false,
+                                    "MinVersion":  "8.0.0",
+                                    "InstallScript":  "winget install --id Microsoft.DotNet.SDK.8 --accept-source-agreements --accept-package-agreements -e",
+                                    "Dependencies":  [
+
+                                                     ],
+                                    "DisplayName":  ".NET SDK"
+                                },
+                  "OhMyPosh":  {
+                                   "ThemePath":  "C:\\Users\\ADMIN\\.poshthemes",
+                                   "DownloadUrl":  "https://ohmyposh.dev/",
+                                   "Description":  "Prompt theme engine for shells",
+                                   "WingetId":  "JanDeDobbeleer.OhMyPosh",
+                                   "Category":  "Productivity",
+                                   "Command":  "oh-my-posh",
+                                   "Name":  "Oh-My-Posh",
+                                   "Required":  true,
+                                   "InstallScript":  "winget install --id JanDeDobbeleer.OhMyPosh --accept-source-agreements --accept-package-agreements -e",
+                                   "Dependencies":  [
+
+                                                    ],
+                                   "DisplayName":  "Oh-My-Posh"
+                               },
+                  "VSCode":  {
+                                 "DownloadUrl":  "https://code.visualstudio.com/",
+                                 "Description":  "Code editor redefined and optimized for building",
+                                 "WingetId":  "Microsoft.VisualStudioCode",
+                                 "Category":  "Development",
+                                 "Command":  "code",
+                                 "Name":  "VSCode",
+                                 "Required":  false,
+                                 "InstallScript":  "winget install --id Microsoft.VisualStudioCode --accept-source-agreements --accept-package-agreements -e",
+                                 "Dependencies":  [
+
+                                                  ],
+                                 "DisplayName":  "Visual Studio Code"
+                             },
+                  "WindowsTerminal":  {
+                                          "DownloadUrl":  "https://aka.ms/terminal",
+                                          "Description":  "Modern terminal application for Windows",
+                                          "WingetId":  "Microsoft.WindowsTerminal",
+                                          "Category":  "System",
+                                          "Command":  "wt",
+                                          "ConfigPath":  "C:\\Users\\ADMIN\\AppData\\Local\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json",
+                                          "Name":  "Windows Terminal",
+                                          "Required":  false,
+                                          "InstallScript":  "winget install --id Microsoft.WindowsTerminal --accept-source-agreements --accept-package-agreements -e",
+                                          "Dependencies":  [
+
+                                                           ],
+                                          "DisplayName":  "Windows Terminal"
+                                      },
+                  "PowerShell":  {
+                                     "VerificationCommand":  "$PSVersionTable.PSVersion",
+                                     "DownloadUrl":  "https://github.com/PowerShell/PowerShell/releases",
+                                     "Description":  "Modern command-line shell and scripting language",
+                                     "WingetId":  "Microsoft.PowerShell",
+                                     "Category":  "System",
+                                     "Command":  "pwsh",
+                                     "Name":  "PowerShell",
+                                     "Required":  true,
+                                     "MinVersion":  "7.0.0",
+                                     "InstallScript":  "winget install --id Microsoft.PowerShell --accept-source-agreements --accept-package-agreements -e",
+                                     "Dependencies":  [
+
+                                                      ],
+                                     "DisplayName":  "PowerShell 7"
+                                 },
+                  "Python":  {
+                                 "Category":  "Development",
+                                 "DisplayName":  "Python 3",
+                                 "Required":  false,
+                                 "VerificationCommand":  "python --version",
+                                 "Dependencies":  [
+                                                      "VCRedist2022"
+                                                  ],
+                                 "InstallScript":  "winget install --id Python.Python.3 --accept-source-agreements --accept-package-agreements -e",
+                                 "Name":  "Python",
+                                 "DownloadUrl":  "https://www.python.org/downloads/",
+                                 "Description":  "Programming language and runtime",
+                                 "Command":  "python",
+                                 "SecondaryCommands":  [
+                                                           "pip"
+                                                       ],
+                                 "WingetId":  "Python.Python.3",
+                                 "MinVersion":  "3.10.0"
+                             },
+                  "Git":  {
+                              "InstallerArgs":  [
+                                                    "/SILENT"
+                                                ],
+                              "Category":  "Development",
+                              "DisplayName":  "Git for Windows",
+                              "Required":  true,
+                              "VerificationCommand":  "git --version",
+                              "Dependencies":  [
+
+                                               ],
+                              "InstallScript":  "winget install --id Git.Git --accept-source-agreements --accept-package-agreements -e",
+                              "Name":  "Git",
+                              "DownloadUrl":  "https://git-scm.com/download/win",
+                              "Description":  "Distributed version control system",
+                              "Command":  "git",
+                              "WingetId":  "Git.Git",
+                              "MinVersion":  "2.40.0"
+                          },
+                  "Neovim":  {
+                                 "Category":  "Development",
+                                 "ConfigPaths":  [
+                                                     "C:\\Users\\ADMIN\\.config\\nvim",
+                                                     "C:\\Users\\ADMIN\\AppData\\Local\\nvim"
+                                                 ],
+                                 "DisplayName":  "Neovim",
+                                 "Required":  true,
+                                 "VerificationCommand":  "nvim --version",
+                                 "Dependencies":  [
+
+                                                  ],
+                                 "InstallScript":  "winget install --id Neovim.Neovim --accept-source-agreements --accept-package-agreements -e",
+                                 "Name":  "Neovim",
+                                 "DownloadUrl":  "https://github.com/neovim/neovim/releases",
+                                 "Description":  "Vim-fork focused on extensibility and usability",
+                                 "Command":  "nvim",
+                                 "WingetId":  "Neovim.Neovim",
+                                 "MinVersion":  "0.9.0"
+                             }
+              },
+    "XDG":  {
+                "NeovimDataPath":  "C:\\Users\\ADMIN\\.local\\data\\vim-data",
+                "ConfigHome":  "C:\\Users\\ADMIN\\.local\\config",
+                "VimRuntimePath":  "C:\\Users\\ADMIN\\.local\\data\\vim-data\\vimfiles",
+                "StateHome":  "C:\\Users\\ADMIN\\.local\\state",
+                "DataHome":  "C:\\Users\\ADMIN\\.local\\data",
+                "NeovimConfigPath":  "C:\\Users\\ADMIN\\.local\\config\\nvim",
+                "CacheHome":  "C:\\Users\\ADMIN\\.cache"
+            },
+    "ManualInstallationUrls":  {
+                                   "Winget":  "https://github.com/microsoft/winget-cli/releases",
+                                   "OhMyPosh":  "https://ohmyposh.dev/",
+                                   "Node":  "https://nodejs.org/",
+                                   "WindowsTerminal":  "https://aka.ms/terminal",
+                                   "PowerShell":  "https://github.com/PowerShell/PowerShell/releases",
+                                   "Python":  "https://www.python.org/downloads/",
+                                   "Git":  "https://git-scm.com/download/win",
+                                   "Docker":  "https://www.docker.com/products/docker-desktop/",
+                                   "VCRedist":  "https://aka.ms/vs/17/release/vc_redist.x64.exe",
+                                   "DotNet":  "https://dotnet.microsoft.com/download",
+                                   "VSCode":  "https://code.visualstudio.com/",
+                                   "Neovim":  "https://github.com/neovim/neovim/releases"
+                               },
+    "Dotfile":  {
+                    "Branch":  "master",
+                    "BackupPattern":  ".dotfile_backup_{0}",
+                    "AliasName":  "dot",
+                    "RepoUrl":  "https://github.com/nbfhscl/dotfile.git",
+                    "DotDir":  "C:\\Users\\ADMIN\\.dotfile"
+                },
+    "ValidationRules":  {
+                            "ContinueOnOptionalFailure":  true,
+                            "RequiredDiskSpace":  5,
+                            "AutoBackup":  true,
+                            "CreateBackups":  true,
+                            "RequireWinget":  true,
+                            "ContinueOnRequiredFailure":  false,
+                            "OfflineModeSupported":  true,
+                            "SkipOptionalTools":  false,
+                            "RequireAdministrator":  false,
+                            "MinPowerShellVersionWarn":  "5.1",
+                            "InternetRequired":  true,
+                            "MinWindowsVersion":  "10.0.19041",
+                            "MinPowerShellVersion":  "7.0",
+                            "ForceOverwrite":  false,
+                            "RecommendedRAM":  8
+                        },
+    "UI":  {
+               "SectionHeader":  {
+                                     "Prefix":  "",
+                                     "Width":  42,
+                                     "Character":  "="
+                                 },
+               "Formatting":  {
+                                  "DoubleIndent":  "    ",
+                                  "Indent":  "  ",
+                                  "Separator":  "-"
+                              },
+               "Icons":  {
+                             "Error":  "[x]",
+                             "Warning":  "[!]",
+                             "Success":  "[+]",
+                             "Info":  "[i]",
+                             "Arrow":  "-\u003e",
+                             "Bullet":  "*"
+                         },
+               "Colors":  {
+                              "Accent":  "Blue",
+                              "Error":  "Red",
+                              "Warning":  "Yellow",
+                              "Success":  "Green",
+                              "Info":  "Cyan",
+                              "Muted":  "Gray"
+                          }
+           }
+}
