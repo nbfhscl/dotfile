@@ -631,7 +631,17 @@ function Install-DevEnvironment {
     }
 
     Write-SectionComplete "All completed!"
-    Write-Info "Please restart PowerShell or run '. \$PROFILE' to apply all configurations"
+
+    # Automatically reload profile in current session
+    Write-Info "Reloading PowerShell profile in current session..."
+    try {
+        $xdgProfile = "$env:USERPROFILE\.config\powershell\profile.ps1"
+        . $xdgProfile
+        Write-Success "Profile reloaded successfully in current session!"
+    } catch {
+        Write-WarningCustom "Could not reload profile in current session: $_"
+        Write-Info "Please restart PowerShell to apply all configurations"
+    }
 }
 
 <#
@@ -666,6 +676,17 @@ function Deploy-Only {
     }
 
     Write-SectionComplete "Dotfile deployment completed!"
+
+    # Automatically reload profile in current session
+    Write-Info "Reloading PowerShell profile in current session..."
+    try {
+        $xdgProfile = "$env:USERPROFILE\.config\powershell\profile.ps1"
+        . $xdgProfile
+        Write-Success "Profile reloaded successfully in current session!"
+    } catch {
+        Write-WarningCustom "Could not reload profile in current session: $_"
+        Write-Info "Please restart PowerShell to apply all configurations"
+    }
 }
 
 <#
@@ -688,6 +709,16 @@ function Update-Dotfiles {
         Deploy-AllNeovimConfig
 
         Write-SectionComplete "Dotfiles updated successfully!"
+
+        # Automatically reload profile in current session
+        Write-Info "Reloading PowerShell profile in current session..."
+        try {
+            . $PROFILE.CurrentUserCurrentHost
+            Write-Success "Profile reloaded successfully in current session!"
+        } catch {
+            Write-WarningCustom "Could not reload profile in current session: $_"
+            Write-Info "Please restart PowerShell to apply all configurations"
+        }
     } catch {
         $errorMsg = "Dotfile update failed: $_"
         Write-ErrorCustom $errorMsg

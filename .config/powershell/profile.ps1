@@ -1,6 +1,10 @@
 # ============================================
-# PowerShell Configuration
+# PowerShell Configuration (XDG Base Directory Specification)
 # ============================================
+# This file is located at: ~/.config/powershell/profile.ps1
+# It is automatically loaded by the bootstrap profile at:
+#   $PROFILE.CurrentUserCurrentHost
+# This follows the XDG Base Directory specification for cross-platform compatibility.
 
 # Oh-My-Posh Theme Engine
 $env:POSH_THEMES_PATH = "$env:USERPROFILE\.poshthemes"
@@ -59,6 +63,7 @@ Set-Alias ll Get-ChildItem
 Set-Alias grep Select-String
 
 # Custom functions
-function Edit-Profile { & $env:EDITOR $PROFILE.CurrentUserCurrentHost }
-function Reload-Profile { . $PROFILE.CurrentUserCurrentHost }
+$XDGProfile = "$env:USERPROFILE\.config\powershell\profile.ps1"
+function Edit-Profile { & $env:EDITOR $XDGProfile }
+function Reload-Profile { . $XDGProfile }
 function Show-Env { Get-ChildItem Env: | Format-Table -AutoSize }

@@ -446,25 +446,45 @@ function Deploy-PowerShellProfile {
         [string]$SourcePath = ".config/powershell/profile.ps1"
     )
 
-    Write-Info "Configuring PowerShell Profile..."
-    $profileDir = Split-Path -Parent $PROFILE.CurrentUserCurrentHost
-    $profilePath = $PROFILE.CurrentUserCurrentHost
+    Write-SectionHeader "Configuring PowerShell Profile"
 
-    if (-not (Test-Path $profileDir)) {
-        New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+    # Define paths
+    $xdgConfigPath = "$env:USERPROFILE\.config\powershell\profile.ps1"
+    $standardProfilePath = $PROFILE.CurrentUserCurrentHost
+    $standardProfileDir = Split-Path -Parent $standardProfilePath
+
+    # Create XDG config directory
+    $xdgConfigDir = Split-Path -Parent $xdgConfigPath
+    if (-not (Test-Path $xdgConfigDir)) {
+        New-Item -ItemType Directory -Path $xdgConfigDir -Force | Out-Null
+        Write-Info "Created XDG config directory: $xdgConfigDir"
     }
 
-    if (Test-Path $profilePath) {
-        $backupPath = "$profilePath.backup"
-        Write-WarningCustom "Existing profile found, backing up to: $backupPath"
-        Copy-Item $profilePath $backupPath -Force
+    # Create standard profile directory
+    if (-not (Test-Path $standardProfileDir)) {
+        New-Item -ItemType Directory -Path $standardProfileDir -Force | Out-Null
     }
 
+    # Backup existing profiles
+    if (Test-Path $xdgConfigPath) {
+        $backupPath = "$xdgConfigPath.backup"
+        Write-Info "Backing up existing XDG profile to: $backupPath"
+        Copy-Item $xdgConfigPath $backupPath -Force
+    }
+
+    if (Test-Path $standardProfilePath) {
+        $backupPath = "$standardProfilePath.backup"
+        Write-Info "Backing up existing standard profile to: $backupPath"
+        Copy-Item $standardProfilePath $backupPath -Force
+    }
+
+    # Deploy profile content to XDG path
     if (Test-Path $SourcePath) {
-        Write-Info "Deploying profile from dotfile..."
-        Copy-Item $SourcePath $profilePath -Force
+        Write-Info "Deploying profile from dotfile to XDG path: $xdgConfigPath"
+        Copy-Item $SourcePath $xdgConfigPath -Force
+        Write-Success "Profile deployed to XDG path"
     } else {
-        Write-WarningCustom "Profile not found in dotfile, creating default profile..."
+        Write-WarningCustom "Profile not found in dotfile, creating default profile at XDG path..."
         # Create a minimal default profile
         $defaultProfile = @'
 # ============================================
@@ -519,18 +539,43 @@ Set-Alias ll Get-ChildItem
 Set-Alias grep Select-String
 
 # Custom functions
-function Edit-Profile { & $env:EDITOR $PROFILE.CurrentUserCurrentHost }
-function Reload-Profile { . $PROFILE.CurrentUserCurrentHost }
+function Edit-Profile { & $env:EDITOR "$env:USERPROFILE\.config\powershell\profile.ps1" }
+function Reload-Profile { . "$env:USERPROFILE\.config\powershell\profile.ps1" }
 function Show-Env { Get-ChildItem Env: | Format-Table -AutoSize }
 '@
-        $defaultProfile | Out-File -FilePath $profilePath -Encoding utf8
+        $defaultProfile | Out-File -FilePath $xdgConfigPath -Encoding utf8
+        Write-Success "Default profile created at XDG path"
     }
+
+    # Create bootstrap profile in standard location
+    $bootstrapProfile = @'
+# ============================================
+# PowerShell Profile Bootstrap
+# ============================================
+# This file automatically loads the XDG-compliant profile
+# Actual profile location: ~/.config/powershell/profile.ps1
+
+$xdgProfile = "$env:USERPROFILE\.config\powershell\profile.ps1"
+
+if (Test-Path $xdgProfile) {
+    . $xdgProfile
+} else {
+    Write-Warning "XDG profile not found at: $xdgProfile"
+}
+'@
+
+    Write-Info "Creating bootstrap profile at: $standardProfilePath"
+    $bootstrapProfile | Out-File -FilePath $standardProfilePath -Encoding utf8
+    Write-Success "Bootstrap profile created"
 
     # Ensure the theme directory and default theme are deployed
     Deploy-DefaultTheme
 
     Write-Success "PowerShell Profile configuration completed"
-    Write-Info "Please run '. \$PROFILE' or restart PowerShell to apply configuration"
+    Write-Info "Profile structure:"
+    Write-Info "  - XDG Profile (actual):  $xdgConfigPath"
+    Write-Info "  - Bootstrap (loader):    $standardProfilePath"
+    Write-Info "The bootstrap profile automatically loads the XDG profile."
 }
 
 <#
