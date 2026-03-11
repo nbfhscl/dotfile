@@ -16,24 +16,62 @@
 .
 ├── install.ps1                    # Windows PowerShell 主安装脚本
 ├── install.sh                     # Linux/macOS Bash 安装脚本
-├── scripts/                       # 功能脚本
-│   ├── Install-Tools.ps1         # 仅安装工具
-│   ├── Deploy-Dotfiles.ps1       # 仅部署配置
-│   ├── Verify-Configuration.ps1  # 验证配置
-│   ├── Update-Dotfiles.ps1       # 更新配置
-│   ├── Show-DotfileStatus.ps1    # 显示状态
-│   ├── Uninstall-Dotfile.ps1    # 完整卸载
-│   ├── Quick-Uninstall.ps1      # 快速卸载
-│   └── Collect-Local-Tools.ps1   # 收集本地工具（离线部署）
-├── .config/powershell/           # Windows 模块化代码
+├── scripts/                       # PowerShell 脚本
+│   ├── installation/              # 安装相关脚本
+│   │   └── Install-Tools.ps1     # 仅安装工具
+│   ├── deployment/               # 部署相关脚本
+│   │   ├── Deploy-Dotfiles.ps1   # 仅部署配置
+│   │   ├── Update-Dotfiles.ps1   # 更新配置
+│   │   ├── Collect-Local-Tools.ps1 # 收集本地工具
+│   │   └── Collect-Local-Tools-Simple.ps1 # 简化版收集
+│   ├── utilities/               # 实用工具脚本
+│   │   ├── Show-DotfileStatus.ps1    # 显示状态
+│   │   ├── Uninstall-Dotfile.ps1    # 完整卸载
+│   │   └── Quick-Uninstall.ps1      # 快速卸载
+│   ├── testing/                 # 测试验证脚本
+│   │   ├── Verify-Configuration.ps1  # 验证配置
+│   │   ├── Verify-Refactoring.ps1   # 验证重构
+│   │   └── Simple-Test.ps1      # 简单测试
+│   └── offline-deployment/       # 离线部署包
+│       ├── Deploy-To-Offline-Machine.ps1
+│       └── README.md
+├── docs/                        # 文档目录
+│   ├── getting-started/        # 入门指南
+│   ├── installation/          # 安装指南
+│   │   ├── windows-installation-guide.md
+│   │   └── windows-testing-checklist.md
+│   ├── configuration/         # 配置说明
+│   │   └── WINDOWS_XDG_GUIDE.md
+│   ├── development/           # 开发文档
+│   ├── reference/             # 参考资料
+│   ├── usage/                # 使用指南
+│   │   └── SCRIPT_USAGE_GUIDE.md
+│   └── plans/               # 计划文档
+├── archive/                  # 归档文档
+│   ├── POWERSHELL_REFACTOR_SUMMARY.md
+│   ├── REFACTORING_SUMMARY.md
+│   └── REFACTORING_COMPLETE.md
+├── .config/powershell/      # Windows 模块化代码
 │   └── modules/
-│       ├── UI.psm1              # 用户界面
+│       ├── UI.psm1          # 用户界面
 │       ├── ToolInstaller.psm1    # 工具安装
 │       ├── ConfigDeployer.psm1  # 配置部署
 │       ├── Verifier.psm1        # 验证功能
 │       └── DotfileInstaller.psm1 # dotfile 管理
-└── README.md                     # 说明文档
+└── README.md                # 说明文档
 ```
+
+## 📚 文档导航
+
+### 🚀 入门指南
+- [Windows 安装指南](docs/installation/windows-installation-guide.md) - 详细的 Windows 系统安装步骤
+- [脚本使用指南](docs/usage/SCRIPT_USAGE_GUIDE.md) - 所有 PowerShell 脚本的使用方法
+- [XDG 配置说明](docs/configuration/WINDOWS_XDG_GUIDE.md) - Linux 风格配置路径说明
+
+### 📋 参考资料
+- [更新日志](docs/CHANGELOG.md) - 版本更新历史
+- [开发文档](docs/development/) - 内部开发文档
+- [归档文档](archive/) - 历史版本和重构记录
 
 ## 🚀 安装方式
 
@@ -133,19 +171,19 @@ irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.
 ### 验证安装
 ```powershell
 # 验证所有配置
-.\scripts\Verify-Configuration.ps1
+.\scripts\testing\Verify-Configuration.ps1
 
 # 查看详细输出
-.\scripts\Verify-Configuration.ps1 -Verbose
+.\scripts\testing\Verify-Configuration.ps1 -Verbose
 ```
 
 ### 更新配置
 ```powershell
 # 更新 dotfiles
-.\scripts\Update-Dotfiles.ps1
+.\scripts\deployment\Update-Dotfiles.ps1
 
 # 查看状态
-.\scripts\Show-DotfileStatus.ps1
+.\scripts\utilities\Show-DotfileStatus.ps1
 ```
 
 ## 🧹 卸载功能
@@ -156,19 +194,19 @@ irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.
 .\install.ps1 -Uninstall
 
 # 或使用独立脚本
-.\scripts\Quick-Uninstall.ps1
+.\scripts\utilities\Quick-Uninstall.ps1
 
 # 静默模式并删除备份
-.\scripts\Quick-Uninstall.ps1 -Quiet -RemoveBackups
+.\scripts\utilities\Quick-Uninstall.ps1 -Quiet -RemoveBackups
 ```
 
 ### 完整卸载
 ```powershell
 # 完全卸载所有内容
-.\scripts\Uninstall-Dotfile.ps1
+.\scripts\utilities\Uninstall-Dotfile.ps1
 
 # 自定义选项
-.\scripts\Uninstall-Dotfile.ps1 -RemoveBackups -KeepProfile
+.\scripts\utilities\Uninstall-Dotfile.ps1 -RemoveBackups -KeepProfile
 ```
 
 ## 📦 离线部署
@@ -176,13 +214,13 @@ irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.
 ### 1. 从已安装系统收集工具
 ```powershell
 # 收集所有工具
-.\scripts\Collect-Local-Tools.ps1
+.\scripts\deployment\Collect-Local-Tools.ps1
 
 # 收集指定工具
-.\scripts\Collect-Local-Tools.ps1 -IncludeTools "Git", "NodeJS", "Neovim"
+.\scripts\deployment\Collect-Local-Tools.ps1 -IncludeTools "Git", "NodeJS", "Neovim"
 
 # 创建压缩包
-.\scripts\Collect-Local-Tools.ps1 -Compress -PackageName "DevTools-Offline"
+.\scripts\deployment\Collect-Local-Tools.ps1 -Compress -PackageName "DevTools-Offline"
 ```
 
 ### 2. 部署到离线机器
@@ -211,19 +249,19 @@ cd offline-deployment
 ### 场景3：更新工具配置
 ```powershell
 # 更新 dotfiles
-.\scripts\Update-Dotfiles.ps1
+.\scripts\deployment\Update-Dotfiles.ps1
 
 # 验证配置
-.\scripts\Verify-Configuration.ps1
+.\scripts\testing\Verify-Configuration.ps1
 ```
 
 ### 场景4：内网离线部署
 ```powershell
 # 收集工具
-.\scripts\Collect-Local-Tools.ps1 -Compress
+.\scripts\deployment\Collect-Local-Tools.ps1 -Compress
 
 # 在离线机器部署
-.\Deploy-To-Offline-Machine.ps1
+.\offline-deployment\Deploy-To-Offline-Machine.ps1
 ```
 
 ## 🔧 高级配置
@@ -294,4 +332,4 @@ Get-Help .\install.ps1 -Full
 
 ---
 
-*最后更新：2026-03-05*
+*最后更新：2026-03-06*

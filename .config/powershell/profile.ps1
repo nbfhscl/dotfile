@@ -1,5 +1,5 @@
 # ============================================
-# PowerShell 7 Configuration
+# PowerShell Configuration
 # ============================================
 
 # Oh-My-Posh Theme Engine
@@ -38,6 +38,15 @@ if (Get-Command zoxide -ErrorAction SilentlyContinue) {
 if (Get-Module -ListAvailable -Name PSFzf) {
     Import-Module PSFzf
     Set-PsFzfOption -PSReadlineChordProvider Ctrl+t -PsReadlineChordReverseHistory Ctrl+r
+}
+
+# --- psmux Configuration ---
+# Point psmux to your dotfiles directory
+$env:PSMUX_CONFIG = "$env:USERPROFILE\.config\tmux\tmux.conf"
+
+# --- Alias for tmux-like muscle memory ---
+if (Get-Command psmux -ErrorAction SilentlyContinue) {
+    Set-Alias -Name tmux -Value psmux
 }
 
 # dotfile management

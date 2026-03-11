@@ -468,7 +468,7 @@ function Deploy-PowerShellProfile {
         # Create a minimal default profile
         $defaultProfile = @'
 # ============================================
-# PowerShell 7 Configuration
+# PowerShell Configuration
 # ============================================
 
 # Oh-My-Posh Theme Engine

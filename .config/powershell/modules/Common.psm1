@@ -55,7 +55,11 @@ function Write-Info {
         [switch]$NoPrefix
     )
 
-    $prefix = if ($NoPrefix) { "" } else { "[INFO] " }
+    if ($NoPrefix) {
+        $prefix = ""
+    } else {
+        $prefix = "[INFO] "
+    }
     Write-Host "${prefix}$Message" -ForegroundColor Cyan
 }
 
@@ -81,7 +85,11 @@ function Write-Success {
         [switch]$NoPrefix
     )
 
-    $prefix = if ($NoPrefix) { "" } else { "[SUCCESS] " }
+    if ($NoPrefix) {
+        $prefix = ""
+    } else {
+        $prefix = "[SUCCESS] "
+    }
     Write-Host "${prefix}$Message" -ForegroundColor Green
 }
 
@@ -106,7 +114,11 @@ function Write-WarningCustom {
         [switch]$NoPrefix
     )
 
-    $prefix = if ($NoPrefix) { "" } else { "[WARN] " }
+    if ($NoPrefix) {
+        $prefix = ""
+    } else {
+        $prefix = "[WARN] "
+    }
     Write-Host "${prefix}$Message" -ForegroundColor Yellow
 }
 
@@ -131,7 +143,11 @@ function Write-ErrorCustom {
         [switch]$NoPrefix
     )
 
-    $prefix = if ($NoPrefix) { "" } else { "[ERROR] " }
+    if ($NoPrefix) {
+        $prefix = ""
+    } else {
+        $prefix = "[ERROR] "
+    }
     Write-Host "${prefix}$Message" -ForegroundColor Red
 }
 
@@ -248,7 +264,7 @@ function Test-PowerShellVersion {
     [CmdletBinding()]
     [OutputType([bool])]
     param(
-        [version]$MinimumVersion = "7.0",
+        [version]$MinimumVersion = "5.1",
         [switch]$WarnOnly
     )
 
@@ -828,7 +844,11 @@ function Initialize-Logging {
     # Generate log filename
     if ($IncludeDateInName) {
         $dateStr = Get-Date -Format "yyyyMMdd"
-        $logFileName = "${LogName}_${dateStr}.log"
+        if ($IncludeDateInName) {
+            $logFileName = "${LogName}_${dateStr}.log"
+        } else {
+            $logFileName = "${LogName}.log"
+        }
     } else {
         $logFileName = "${LogName}.log"
     }
