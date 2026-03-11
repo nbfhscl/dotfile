@@ -476,6 +476,9 @@ function Deploy-PowerShellProfile {
         $backupPath = "$standardProfilePath.backup"
         Write-Info "Backing up existing standard profile to: $backupPath"
         Copy-Item $standardProfilePath $backupPath -Force
+
+        # Remove existing file/symlink to create new symlink
+        Remove-Item $standardProfilePath -Force -ErrorAction SilentlyContinue
     }
 
     # Deploy profile content to XDG path
@@ -488,8 +491,11 @@ function Deploy-PowerShellProfile {
         # Create a minimal default profile
         $defaultProfile = @'
 # ============================================
-# PowerShell Configuration
+# PowerShell Configuration (XDG Base Directory Specification)
 # ============================================
+# This file is located at: ~/.config/powershell/profile.ps1
+# It is automatically loaded by PowerShell via symlink at $PROFILE
+# This follows the XDG Base Directory specification for cross-platform compatibility.
 
 # Oh-My-Posh Theme Engine
 $env:POSH_THEMES_PATH = "$env:USERPROFILE\.poshthemes"
@@ -529,6 +535,15 @@ if (Get-Module -ListAvailable -Name PSFzf) {
     Set-PsFzfOption -PSReadlineChordProvider Ctrl+t -PsReadlineChordReverseHistory Ctrl+r
 }
 
+# --- psmux Configuration ---
+# Point psmux to your dotfiles directory
+$env:PSMUX_CONFIG = "$env:USERPROFILE\.config\tmux\tmux.conf"
+
+# --- Alias for tmux-like muscle memory ---
+if (Get-Command psmux -ErrorAction SilentlyContinue) {
+    Set-Alias -Name tmux -Value psmux
+}
+
 # dotfile management
 function dot {
     git --git-dir="$env:USERPROFILE\.dotfile" --work-tree="$env:USERPROFILE" $args
@@ -539,16 +554,27 @@ Set-Alias ll Get-ChildItem
 Set-Alias grep Select-String
 
 # Custom functions
-function Edit-Profile { & $env:EDITOR "$env:USERPROFILE\.config\powershell\profile.ps1" }
-function Reload-Profile { . "$env:USERPROFILE\.config\powershell\profile.ps1" }
+$XDGProfile = "$env:USERPROFILE\.config\powershell\profile.ps1"
+function Edit-Profile { & $env:EDITOR $XDGProfile }
+function Reload-Profile { . $XDGProfile }
 function Show-Env { Get-ChildItem Env: | Format-Table -AutoSize }
 '@
         $defaultProfile | Out-File -FilePath $xdgConfigPath -Encoding utf8
         Write-Success "Default profile created at XDG path"
     }
 
-    # Create bootstrap profile in standard location
-    $bootstrapProfile = @'
+    # Create symlink from $PROFILE to XDG profile
+    Write-Info "Creating symlink: $standardProfilePath -> $xdgConfigPath"
+    try {
+        New-Item -ItemType SymbolicLink -Path $standardProfilePath -Target $xdgConfigPath -Force | Out-Null
+        Write-Success "Symlink created successfully"
+    } catch {
+        Write-ErrorCustom "Failed to create symlink: $_"
+        Write-WarningCustom "Symlink creation requires Administrator privileges or Developer Mode enabled"
+        Write-Info "Falling back to bootstrap profile..."
+
+        # Fallback: create bootstrap profile if symlink fails
+        $bootstrapProfile = @'
 # ============================================
 # PowerShell Profile Bootstrap
 # ============================================
@@ -563,19 +589,18 @@ if (Test-Path $xdgProfile) {
     Write-Warning "XDG profile not found at: $xdgProfile"
 }
 '@
-
-    Write-Info "Creating bootstrap profile at: $standardProfilePath"
-    $bootstrapProfile | Out-File -FilePath $standardProfilePath -Encoding utf8
-    Write-Success "Bootstrap profile created"
+        $bootstrapProfile | Out-File -FilePath $standardProfilePath -Encoding utf8
+        Write-Success "Bootstrap profile created as fallback"
+    }
 
     # Ensure the theme directory and default theme are deployed
     Deploy-DefaultTheme
 
     Write-Success "PowerShell Profile configuration completed"
     Write-Info "Profile structure:"
-    Write-Info "  - XDG Profile (actual):  $xdgConfigPath"
-    Write-Info "  - Bootstrap (loader):    $standardProfilePath"
-    Write-Info "The bootstrap profile automatically loads the XDG profile."
+    Write-Info "  - XDG Profile (actual):    $xdgConfigPath"
+    Write-Info "  - Symlink ($PROFILE):      $standardProfilePath"
+    Write-Info "The symlink directly loads the XDG profile."
 }
 
 <#
