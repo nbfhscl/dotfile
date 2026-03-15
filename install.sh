@@ -19,6 +19,10 @@ readonly REPO_URL="https://github.com/nbfhscl/dotfile.git"
 readonly DOT_DIR="$HOME/.dotfile"
 readonly ALIAS_NAME="dot"
 readonly SCRIPT_NAME="$(basename "$0")"
+readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source "$ROOT_DIR/scripts/lib/actions.sh"
+source "$ROOT_DIR/scripts/lib/xdg.sh"
 
 # Runtime configuration
 BACKUP_DIR=""
@@ -186,6 +190,10 @@ deploy_dotfiles() {
   info "Deploying dotfiles..."
   dot checkout -f >/dev/null 2>&1
   dot config --local status.showUntrackedFiles no
+}
+
+ensure_xdg_paths() {
+  init_xdg_paths
 }
 
 install_shell_alias() {
@@ -571,6 +579,164 @@ verify_installation() {
   return $failed
 }
 
+print_runtime_status() {
+  ensure_xdg_paths
+
+  echo ""
+  echo "=========================================="
+  echo "  Dotfile Status"
+  echo "=========================================="
+  echo ""
+
+  log "Lifecycle actions: ${DOTFILE_ACTIONS[*]}"
+  echo ""
+  log "XDG path configuration:"
+  print_xdg_status
+  echo ""
+
+  if [ -d "$DOT_DIR" ]; then
+    if dot rev-parse --is-bare-repository >/dev/null 2>&1; then
+      log "Dotfile repository: $DOT_DIR"
+      if [ -n "$DRY_RUN" ]; then
+        info "[DRY-RUN] Would run: dot status -sb"
+      else
+        dot status -sb || warn "Unable to read dotfile repository status"
+      fi
+    else
+      warn "Dotfile directory exists but is not a valid bare repository: $DOT_DIR"
+    fi
+  else
+    warn "Dotfile repository not installed yet"
+  fi
+}
+
+run_verification() {
+  ensure_xdg_paths
+
+  echo ""
+  echo "=========================================="
+  echo "  Dotfile Verification"
+  echo "=========================================="
+  echo ""
+
+  log "Verifying XDG path contract..."
+  print_xdg_status
+  echo ""
+
+  local missing=0
+  local path
+
+  for path in "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"; do
+    if [ -d "$path" ]; then
+      log "  ✓ $path"
+    else
+      warn "  ✗ $path"
+      ((missing++))
+    fi
+  done
+
+  if [ -d "$DOT_DIR" ]; then
+    log "  ✓ Dotfile repository path exists"
+  else
+    warn "  ✗ Dotfile repository path missing ($DOT_DIR)"
+    ((missing++))
+  fi
+
+  if [ "$missing" -eq 0 ]; then
+    log "Verification completed successfully"
+  else
+    warn "Verification completed with $missing missing item(s)"
+  fi
+
+  return 0
+}
+
+run_update() {
+  ensure_xdg_paths
+
+  echo ""
+  echo "=========================================="
+  echo "  Dotfile Update"
+  echo "=========================================="
+  echo ""
+
+  if [ -n "$DRY_RUN" ]; then
+    info "[DRY-RUN] Would update dotfile repository from $REPO_URL"
+    info "[DRY-RUN] Would redeploy tracked files into $HOME"
+    return 0
+  fi
+
+  if [ ! -d "$DOT_DIR" ]; then
+    warn "Dotfile repository not found, falling back to install"
+    run_installation
+    return 0
+  fi
+
+  log "Updating dotfile repository..."
+  dot fetch origin >/dev/null 2>&1 || error "Failed to fetch latest dotfile changes"
+
+  local target_ref
+  target_ref="$(dot symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null || true)"
+  target_ref="${target_ref#refs/remotes/}"
+  target_ref="${target_ref:-origin/master}"
+
+  dot reset --hard "$target_ref" >/dev/null 2>&1 || error "Failed to reset dotfile repository to $target_ref"
+
+  backup_conflicting_files
+  deploy_dotfiles
+  install_shell_alias
+  log "Dotfile update completed"
+}
+
+run_package() {
+  local package_script="$ROOT_DIR/scripts/offline-export.sh"
+
+  [ -f "$package_script" ] || error "Package script not found: $package_script"
+
+  if [ -n "$DRY_RUN" ]; then
+    info "[DRY-RUN] Would run: bash $package_script"
+    return 0
+  fi
+
+  AUTO_YES="${AUTO_YES:-1}" bash "$package_script"
+}
+
+run_offline_deploy() {
+  local bundle_path="${2:-}"
+
+  [ -n "$bundle_path" ] || error "offline-deploy requires a bundle path"
+
+  if [ -n "$DRY_RUN" ]; then
+    info "[DRY-RUN] Would run offline bundle: bash $bundle_path install"
+    return 0
+  fi
+
+  [ -f "$bundle_path" ] || error "Offline bundle not found: $bundle_path"
+  bash "$bundle_path" install
+}
+
+run_reinstallation() {
+  echo ""
+  echo "=========================================="
+  echo "  Dotfile Reinstallation"
+  echo "=========================================="
+  echo ""
+
+  if [ -n "$DRY_RUN" ]; then
+    info "[DRY-RUN] Would uninstall tracked dotfiles and repository"
+    info "[DRY-RUN] Would install required tools and redeploy dotfiles"
+    return 0
+  fi
+
+  if [ -d "$DOT_DIR" ]; then
+    run_uninstallation
+  else
+    warn "Dotfile repository not found, skipping uninstall step"
+  fi
+
+  run_installation
+}
+
 # ============================================================================
 # INSTALLATION WORKFLOW
 # ============================================================================
@@ -583,6 +749,7 @@ run_installation() {
   echo ""
 
   [ -n "$DRY_RUN" ] && warn "DRY-RUN mode: Previewing operations only" && echo ""
+  ensure_xdg_paths
 
   local os=$(detect_os)
   local pm=$(detect_package_manager)
@@ -733,8 +900,15 @@ show_help() {
 Usage: bash $SCRIPT_NAME <action> [options]
 
 Actions:
-  install     Install dotfiles and required tools
-  uninstall   Remove dotfiles (creates backup by default)
+  install         Install dotfiles and required tools
+  deploy          Deploy dotfiles only, skip tool installation
+  update          Update and redeploy an existing dotfile installation
+  status          Show lifecycle and repository status
+  verify          Verify XDG paths and installation state
+  package         Build an offline deployment bundle from local files
+  offline-deploy  Install from an existing offline bundle
+  uninstall       Remove dotfiles (creates backup by default)
+  reinstall       Reinstall dotfiles with backup protection
 
 Install Options:
   DRY_RUN=1        Preview operations without executing
@@ -755,10 +929,28 @@ Examples:
   DRY_RUN=1 bash $SCRIPT_NAME install
 
   # Deploy dotfiles only
-  SKIP_INSTALL=1 bash $SCRIPT_NAME install
+  bash $SCRIPT_NAME deploy
+
+  # Update an existing install
+  bash $SCRIPT_NAME update
+
+  # Show runtime status and XDG paths
+  DRY_RUN=1 bash $SCRIPT_NAME status
+
+  # Verify current installation contract
+  DRY_RUN=1 bash $SCRIPT_NAME verify
+
+  # Build a portable package
+  bash $SCRIPT_NAME package
+
+  # Install from an offline bundle
+  bash $SCRIPT_NAME offline-deploy ./scripts/dist/dotfiles-offline.sh
 
   # Uninstall with backup
   bash $SCRIPT_NAME uninstall
+
+  # Reinstall with backup preview
+  DRY_RUN=1 bash $SCRIPT_NAME reinstall
 
   # Uninstall without backup
   NO_BACKUP=1 bash $SCRIPT_NAME uninstall
@@ -771,12 +963,11 @@ EOF
 # ============================================================================
 
 main() {
-  case "${1:-}" in
-    install)
-      ACTION="install"
-      ;;
-    uninstall)
-      ACTION="uninstall"
+  local requested_action="${1:-}"
+
+  case "$requested_action" in
+    install|deploy|update|status|verify|package|offline-deploy|uninstall|reinstall)
+      ACTION="$requested_action"
       ;;
     -h|--help|help|"")
       show_help
@@ -784,16 +975,41 @@ main() {
       ;;
     *)
       error "Unknown action: ${1:-}
-Use 'install' or 'uninstall'
+Use one of: ${DOTFILE_ACTIONS[*]}
 Run '$SCRIPT_NAME --help' for usage information"
       ;;
   esac
 
-  if [ "$ACTION" = "install" ]; then
-    run_installation
-  elif [ "$ACTION" = "uninstall" ]; then
-    run_uninstallation
-  fi
+  case "$ACTION" in
+    install)
+      run_installation
+      ;;
+    deploy)
+      SKIP_INSTALL=1
+      run_installation
+      ;;
+    update)
+      run_update
+      ;;
+    status)
+      print_runtime_status
+      ;;
+    verify)
+      run_verification
+      ;;
+    package)
+      run_package
+      ;;
+    offline-deploy)
+      run_offline_deploy "$@"
+      ;;
+    uninstall)
+      run_uninstallation
+      ;;
+    reinstall)
+      run_reinstallation
+      ;;
+  esac
 }
 
 main "$@"

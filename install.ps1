@@ -45,7 +45,9 @@
 - `.\install.ps1 -Action Status` - 显示 dotfile 仓库状态
 - `.\install.ps1 -Action Verify` - 验证所有配置是否正确
 - `.\install.ps1 -Action Package` - 创建离线安装包
-- `.\install.ps1 -Action OfflineDeploy` - 部署到离线机器
+- `.\install.ps1 -Action OfflineDeploy` - 从离线包目录执行离线部署
+- `.\install.ps1 -Action Uninstall` - 卸载已部署的 dotfile 配置
+- `.\install.ps1 -Action Reinstall` - 先卸载再重新安装
 
 ### 高级功能
 
@@ -82,15 +84,10 @@
 .\install.ps1 -Uninstall -KeepProfile -KeepTerminalSettings
 ```
 
-#### 包装脚本（向后兼容）
-所有原有的包装脚本已统一到 install.ps1，保持功能不变：
-- `.\scripts\deployment\Deploy-Dotfiles.ps1` → `.\install.ps1 -Action Deploy`
-- `.\scripts\deployment\Update-Dotfiles.ps1` → `.\install.ps1 -Action Update`
-- `.\scripts\installation\Install-Tools.ps1` → `.\install.ps1 -SkipTools`
-- `.\scripts\utilities\Show-DotfileStatus.ps1` → `.\install.ps1 -Action Status`
-- `.\scripts\testing\Verify-Configuration.ps1` → `.\install.ps1 -Action Verify`
-- `.\scripts\deployment\Package-Offline-Installer.ps1` → `.\install.ps1 -Action Package`
-- `.\offline-deployment\Deploy-To-Offline-Machine.ps1` → `.\install.ps1 -Action OfflineDeploy`
+#### 统一入口说明
+Windows 平台现在以 `install.ps1` 作为唯一推荐入口。
+传统开关（如 `-SkipTools`、`-OnlyDotfile`、`-Uninstall`）仍然保留，用于兼容已有使用方式；
+新的生命周期动作统一通过 `-Action` 暴露。
 
 .EXAMPLE
     # 基本安装模式 - 传统方式（兼容旧脚本）
@@ -119,16 +116,6 @@
     .\install.ps1 -Action Package -IncludeDocumentation
     .\install.ps1 -Action Uninstall -Quiet -RemoveBackups # 安静卸载并删除备份
 
-.EXAMPLE
-    # 包装脚本使用示例（向后兼容）
-    .\scripts\deployment\Deploy-Dotfiles.ps1    # 等同于 install.ps1 -Action Deploy
-    .\scripts\deployment\Update-Dotfiles.ps1      # 等同于 install.ps1 -Action Update
-    .\scripts\installation\Install-Tools.ps1     # 等同于 install.ps1 -SkipTools
-    .\scripts\utilities\Show-DotfileStatus.ps1  # 等同于 install.ps1 -Action Status
-    .\scripts\testing\Verify-Configuration.ps1  # 等同于 install.ps1 -Action Verify
-    .\scripts\deployment\Package-Offline-Installer.ps1  # 等同于 install.ps1 -Action Package
-    .\offline-deployment\Deploy-To-Offline-Machine.ps1  # 等同于 install.ps1 -Action OfflineDeploy
-
 .PARAMETER SkipTools
     跳过工具安装，只部署 dotfile 配置（传统模式）
 
@@ -150,6 +137,8 @@
     - Verify: 验证所有配置是否正确
     - Package: 创建离线安装包
     - OfflineDeploy: 部署到离线机器
+    - Uninstall: 卸载已部署的 dotfile 配置
+    - Reinstall: 先卸载后重新安装
 
 .PARAMETER OutputDir
     离线包的输出目录（默认：.\offline-package）
@@ -227,7 +216,7 @@ param(
     [switch]$Uninstall = $false,
 
     # Unified action parameter (recommended)
-    [ValidateSet("Install", "Deploy", "Update", "Status", "Verify", "Package", "OfflineDeploy")]
+    [ValidateSet("Install", "Deploy", "Update", "Status", "Verify", "Package", "OfflineDeploy", "Uninstall", "Reinstall")]
     [string]$Action = "Install",
     [Alias("help")]
     [switch]$ShowHelp = $false,
@@ -486,7 +475,9 @@ if ($ShowHelp) {
     Write-Host "  .\install.ps1 -Action Status             # Show dotfile repository status" -ForegroundColor White
     Write-Host "  .\install.ps1 -Action Verify            # Verify all configurations" -ForegroundColor White
     Write-Host "  .\install.ps1 -Action Package           # Create offline installation package" -ForegroundColor White
-    Write-Host "  .\install.ps1 -Action OfflineDeploy      # Deploy to offline machine" -ForegroundColor White
+    Write-Host "  .\install.ps1 -Action OfflineDeploy      # Run offline deployment from a bundled package directory" -ForegroundColor White
+    Write-Host "  .\install.ps1 -Action Uninstall          # Uninstall dotfiles using unified action mode" -ForegroundColor White
+    Write-Host "  .\install.ps1 -Action Reinstall          # Reinstall dotfiles with backup protection" -ForegroundColor White
     Write-Host "  .\install.ps1 -help                     # Show this help message" -ForegroundColor White
     Write-Host ""
     Write-Host "Advanced Options:" -ForegroundColor Yellow
@@ -575,6 +566,12 @@ function Invoke-Action {
         }
         "OfflineDeploy" {
             Deploy-ToOfflineMachine -LogFile $logFile
+        }
+        "Uninstall" {
+            Uninstall-Dotfiles -LogFile $logFile
+        }
+        "Reinstall" {
+            Reinstall-Dotfiles -LogFile $logFile
         }
         default {
             # Handle legacy mode parameters
@@ -701,7 +698,22 @@ function Update-Dotfiles {
 
     try {
         Write-Info "Updating dotfile repository..."
-        Initialize-DotfileRepo -Update
+        if (-not (Initialize-DotfileRepo -Update)) {
+            throw "Dotfile repository update failed"
+        }
+
+        $originHead = Invoke-DotCommand symbolic-ref --quiet refs/remotes/origin/HEAD 2>$null
+        $targetRef = if ($LASTEXITCODE -eq 0 -and $originHead) {
+            $originHead -replace '^refs/remotes/', ''
+        } else {
+            "origin/master"
+        }
+
+        Write-Info "Resetting bare repository to $targetRef..."
+        Invoke-DotCommand reset --hard $targetRef 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to reset dotfile repository to $targetRef"
+        }
 
         Write-Info "Deploying updated dotfiles..."
         Deploy-Dotfiles
@@ -729,6 +741,74 @@ function Update-Dotfiles {
 
 <#
 .SYNOPSIS
+    Uninstall dotfiles using the unified action contract
+#>
+function Uninstall-Dotfiles {
+    [CmdletBinding()]
+    param($LogFile)
+
+    Write-SectionHeaderSimple "Uninstalling dotfiles"
+
+    try {
+        if ($KeepProfile) {
+            Write-WarningCustom "-KeepProfile preserves bootstrap cleanup, but tracked profile files may still be removed with tracked dotfiles"
+        }
+
+        Invoke-CustomUninstall `
+            -RemoveRepo `
+            -RemoveTracked `
+            -RemovePoshTheme `
+            -RemoveAlias:(-not $KeepProfile) `
+            -RemoveXDG:(-not $KeepProfile) `
+            -RemoveWindowsTerminal:(-not $KeepTerminalSettings) `
+            -RemoveNeovim:(-not $KeepVimConfig) `
+            -BackupBeforeRemove `
+            -DryRun:$DryRun `
+            -Force:$Force
+
+        if ($RemoveBackups) {
+            if ($DryRun) {
+                Write-Info "[DRY-RUN] Would remove uninstall backups"
+            } else {
+                Clear-UninstallBackups -Force:$Force
+            }
+        }
+
+        if ($LogFile) {
+            Write-Log "Dotfile uninstall completed" -LogFile $LogFile -Level Info
+        }
+    } catch {
+        $errorMsg = "Dotfile uninstall failed: $_"
+        Write-ErrorCustom $errorMsg
+        if ($LogFile) {
+            Write-Log $errorMsg -LogFile $LogFile -Level Error
+        }
+        throw
+    }
+}
+
+<#
+.SYNOPSIS
+    Reinstall dotfiles using uninstall + install flow
+#>
+function Reinstall-Dotfiles {
+    [CmdletBinding()]
+    param($LogFile)
+
+    Write-SectionHeaderSimple "Reinstalling dotfiles"
+
+    if ($DryRun) {
+        Write-Info "[DRY-RUN] Would uninstall existing dotfiles"
+        Write-Info "[DRY-RUN] Would install dotfiles again using current settings"
+        return
+    }
+
+    Uninstall-Dotfiles -LogFile $LogFile
+    Install-DevEnvironment -LogFile $LogFile
+}
+
+<#
+.SYNOPSIS
     Show dotfile status (replaces Show-DotfileStatus.ps1)
 #>
 function Show-DotfileStatus {
@@ -739,10 +819,13 @@ function Show-DotfileStatus {
 
     try {
         # Initialize dotfile repo to check status
-        Initialize-DotfileRepo -StatusOnly
+        if (-not (Initialize-DotfileRepo -StatusOnly)) {
+            Write-WarningCustom "Dotfile repository is not initialized"
+            return
+        }
 
         # Get status using dot command
-        $status = dot status --porcelain
+        $status = Invoke-DotCommand status --porcelain
 
         if ($status) {
             Write-WarningCustom "Dotfile has changes:"
@@ -753,7 +836,7 @@ function Show-DotfileStatus {
 
         # Show remote status
         Write-Info "Remote repository status:"
-        $remoteStatus = dot status -sb
+        $remoteStatus = Invoke-DotCommand status -sb
         Write-Host "  $remoteStatus"
     } catch {
         Write-WarningCustom "Unable to check dotfile status: $_"
@@ -829,13 +912,13 @@ function Verify-Configuration {
         Write-SectionComplete "All configurations verified successfully!"
     } else {
         Write-WarningCustom "Some configurations are missing or incomplete"
-        Write-Info "Run '.\install.ps1 -Deploy' to deploy missing configurations"
+        Write-Info "Run '.\install.ps1 -Action Deploy' to deploy missing configurations"
     }
 }
 
 <#
 .SYNOPSIS
-    Create offline package (replaces Package-Offline-Installer.ps1)
+    Create an offline installation package
 #>
 function Create-OfflinePackage {
     [CmdletBinding()]
@@ -911,37 +994,168 @@ function Create-OfflinePackage {
         }
     }
 
+    # Copy config snapshot for offline deployment
+    $configSources = @(".config", ".vim", ".zprofile")
+    foreach ($configSource in $configSources) {
+        $sourcePath = Join-Path $DotfileRoot $configSource
+        $targetPath = Join-Path "$OutputDir\config" $configSource
+        if (Test-Path $sourcePath) {
+            Copy-Item $sourcePath $targetPath -Recurse -Force
+        }
+    }
+
     # Copy scripts
     Copy-Item "$PSScriptRoot\install.ps1" "$OutputDir\scripts\install.ps1" -Force
-    Get-ChildItem "$PSScriptRoot\*.ps1" | Copy-Item -Destination "$OutputDir\scripts\" -Force
 
     # Create offline installer script
     $offlineInstaller = @"
 # Offline Installation Script
 param(
-    [switch]`$SkipTools    [switch]`$OnlyDotfile    [switch]`$DryRun
+    [switch]`$SkipTools,
+    [switch]`$OnlyDotfile,
+    [switch]`$DryRun
 )
 
 Write-Host "=== Offline Development Environment Installation ==="
 
 # Set paths
-`$PackagePath = Split-Path `$PSScriptRoot
+`$PackagePath = Split-Path `$PSScriptRoot -Parent
 `$ToolsPath = Join-Path `$PackagePath "tools"
 `$ModulesPath = Join-Path `$PackagePath "modules"
 `$ConfigPath = Join-Path `$PackagePath "config"
+`$XdgConfigHome = if (`$env:XDG_CONFIG_HOME) { `$env:XDG_CONFIG_HOME } else { Join-Path `$env:USERPROFILE ".config" }
+`$XdgDataHome = if (`$env:XDG_DATA_HOME) { `$env:XDG_DATA_HOME } else { Join-Path `$env:USERPROFILE ".local\share" }
 
-# Install PowerShell modules
-Write-Host "`nInstalling PowerShell modules..."
-Get-ChildItem `$ModulesPath -Directory | ForEach-Object {
-    Install-Module -Name `$_.Name -Force -SkipPublisherCheck -Scope CurrentUser
+function Install-BundledModules {
+    Write-Host "`nInstalling bundled PowerShell modules..."
+    `$moduleRoots = Get-ChildItem `$ModulesPath -Directory -ErrorAction SilentlyContinue
+    `$destinationRoot = Join-Path `$HOME "Documents\PowerShell\Modules"
+    if (-not (Test-Path `$destinationRoot)) {
+        New-Item -ItemType Directory -Path `$destinationRoot -Force | Out-Null
+    }
+
+    foreach (`$moduleRoot in `$moduleRoots) {
+        `$moduleSourceRoot = Get-ChildItem `$moduleRoot.FullName -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not `$moduleSourceRoot) {
+            continue
+        }
+
+        `$destination = Join-Path `$destinationRoot `$moduleSourceRoot.Name
+        if (`$DryRun) {
+            Write-Host "[DRY-RUN] Would install module `$(`$moduleSourceRoot.Name) to `$destination"
+            continue
+        }
+
+        Copy-Item `$moduleSourceRoot.FullName -Destination `$destination -Recurse -Force
+        Write-Host "Installed module: `$(`$moduleSourceRoot.Name)"
+    }
+}
+
+function Install-BundledTools {
+    Write-Host "`nInstalling bundled tools..."
+    `$installers = Get-ChildItem `$ToolsPath -Recurse -File -ErrorAction SilentlyContinue
+
+    foreach (`$installer in `$installers) {
+        `$extension = `$installer.Extension.ToLowerInvariant()
+        if (`$DryRun) {
+            Write-Host "[DRY-RUN] Would install: `$(`$installer.FullName)"
+            continue
+        }
+
+        switch (`$extension) {
+            ".msi" {
+                Start-Process msiexec.exe -ArgumentList @("/i", `$installer.FullName, "/qn", "/norestart") -Wait
+            }
+            ".exe" {
+                Start-Process `$installer.FullName -ArgumentList @("/quiet", "/norestart") -Wait
+            }
+            ".msixbundle" {
+                Add-AppxPackage -Path `$installer.FullName
+            }
+            ".appxbundle" {
+                Add-AppxPackage -Path `$installer.FullName
+            }
+            ".msix" {
+                Add-AppxPackage -Path `$installer.FullName
+            }
+            default {
+                Write-Warning "Skipping unsupported installer format: `$(`$installer.Name)"
+            }
+        }
+    }
+}
+
+function Deploy-BundledConfig {
+    Write-Host "`nDeploying bundled configuration..."
+
+    if (-not `$DryRun) {
+        New-Item -ItemType Directory -Path `$XdgConfigHome -Force | Out-Null
+        New-Item -ItemType Directory -Path `$XdgDataHome -Force | Out-Null
+    }
+
+    `$bundledConfigRoot = Join-Path `$ConfigPath ".config"
+    if (Test-Path `$bundledConfigRoot) {
+        if (`$DryRun) {
+            Write-Host "[DRY-RUN] Would deploy .config to `$XdgConfigHome"
+        } else {
+            Copy-Item (Join-Path `$bundledConfigRoot "*") -Destination `$XdgConfigHome -Recurse -Force
+        }
+    }
+
+    `$bundledVimRoot = Join-Path `$ConfigPath ".vim"
+    if (Test-Path `$bundledVimRoot) {
+        `$vimTarget = Join-Path `$env:USERPROFILE ".vim"
+        if (`$DryRun) {
+            Write-Host "[DRY-RUN] Would deploy .vim to `$vimTarget"
+        } else {
+            Copy-Item `$bundledVimRoot -Destination `$vimTarget -Recurse -Force
+        }
+    }
+
+    `$bundledZProfile = Join-Path `$ConfigPath ".zprofile"
+    if (Test-Path `$bundledZProfile) {
+        `$zprofileTarget = Join-Path `$env:USERPROFILE ".zprofile"
+        if (`$DryRun) {
+            Write-Host "[DRY-RUN] Would deploy .zprofile to `$zprofileTarget"
+        } else {
+            Copy-Item `$bundledZProfile `$zprofileTarget -Force
+        }
+    }
+
+    `$xdgProfile = Join-Path `$XdgConfigHome "powershell\profile.ps1"
+    `$bootstrapProfile = `$PROFILE.CurrentUserCurrentHost
+    `$bootstrapContent = @'
+if (`$env:XDG_CONFIG_HOME) {
+    `$xdgConfigHome = `$env:XDG_CONFIG_HOME
+} else {
+    `$xdgConfigHome = Join-Path `$env:USERPROFILE ".config"
+}
+`$xdgProfile = Join-Path `$xdgConfigHome "powershell\profile.ps1"
+if (Test-Path `$xdgProfile) { . `$xdgProfile }
+'@
+
+    if (`$DryRun) {
+        Write-Host "[DRY-RUN] Would refresh PowerShell bootstrap profile at `$bootstrapProfile"
+    } else {
+        `$bootstrapDir = Split-Path -Parent `$bootstrapProfile
+        if (-not (Test-Path `$bootstrapDir)) {
+            New-Item -ItemType Directory -Path `$bootstrapDir -Force | Out-Null
+        }
+        Set-Content -Path `$bootstrapProfile -Value `$bootstrapContent -Encoding UTF8
+    }
+}
+
+if (`$OnlyDotfile) {
+    `$SkipTools = `$true
 }
 
 # Install tools if not skipped
 if (-not `$SkipTools) {
-    Write-Host "`nInstalling tools..."
-    # Add tool installation logic here...
+    Install-BundledModules
+    Install-BundledTools
 }
 
+Deploy-BundledConfig
 Write-Host "`nInstallation complete. Please restart PowerShell."
 "@
     $offlineInstaller | Out-File "$OutputDir\scripts\offline-install.ps1" -Encoding utf8
@@ -964,7 +1178,7 @@ This package contains pre-downloaded tools for offline installation.
 
 <#
 .SYNOPSIS
-    Deploy to offline machine (replaces Deploy-To-Offline-Machine.ps1)
+    Deploy from a bundled offline package
 #>
 function Deploy-ToOfflineMachine {
     [CmdletBinding()]
@@ -972,26 +1186,17 @@ function Deploy-ToOfflineMachine {
 
     Write-SectionHeaderSimple "Offline Machine Deployment"
 
-    # Install PowerShell modules
-    Write-Info "Installing PowerShell modules..."
-    Install-Module -Name PSReadLine -Force -SkipPublisherCheck -Scope CurrentUser -ErrorAction SilentlyContinue
-    Install-Module -Name Terminal-Icons -Force -SkipPublisherCheck -Scope CurrentUser -ErrorAction SilentlyContinue
-
-    # Deploy profile
-    $profileSource = Join-Path $PSScriptRoot "config\profile.ps1"
-    $profileTarget = "$env:USERPROFILE\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1"
-
-    if (Test-Path $profileSource) {
-        Copy-Item $profileSource $profileTarget -Force
-        Write-Success "PowerShell profile deployed"
+    $offlineInstallerPath = Join-Path $PSScriptRoot "scripts\offline-install.ps1"
+    if (-not (Test-Path $offlineInstallerPath)) {
+        $offlineInstallerPath = Join-Path $PSScriptRoot "offline-install.ps1"
     }
 
-    # Deploy Neovim config if exists
-    $nvimConfig = Get-XDGConfigPath "nvim"
-    if (Test-Path $nvimConfig) {
-        Copy-Item $nvimConfig "$env:XDG_CONFIG_HOME\nvim" -Recurse -Force
-        Write-Success "Neovim configuration deployed"
+    if (-not (Test-Path $offlineInstallerPath)) {
+        throw "Bundled offline installer not found relative to $PSScriptRoot"
     }
+
+    Write-Info "Running bundled offline installer..."
+    & $offlineInstallerPath -SkipTools:$SkipTools -OnlyDotfile:$OnlyDotfile -DryRun:$DryRun
 
     Write-SectionComplete "Offline deployment completed!"
     Write-Info "Please restart PowerShell to apply all changes"
@@ -1022,8 +1227,10 @@ function Write-Help {
     Write-Host "  .\install.ps1 -Action Status             # Show dotfile repository status" -ForegroundColor White
     Write-Host "  .\install.ps1 -Action Verify            # Verify all configurations" -ForegroundColor White
     Write-Host "  .\install.ps1 -Action Package           # Create offline installation package" -ForegroundColor White
-    Write-Host "  .\install.ps1 -Action OfflineDeploy      # Deploy to offline machine" -ForegroundColor White
-    Write-Host "  .\install.ps1 -Action Help               # Show this help message" -ForegroundColor White
+    Write-Host "  .\install.ps1 -Action OfflineDeploy      # Run offline deployment from a bundled package directory" -ForegroundColor White
+    Write-Host "  .\install.ps1 -Action Uninstall          # Uninstall dotfiles using unified action mode" -ForegroundColor White
+    Write-Host "  .\install.ps1 -Action Reinstall          # Reinstall dotfiles with backup protection" -ForegroundColor White
+    Write-Host "  .\install.ps1 -help                      # Show this help message" -ForegroundColor White
     Write-Host ""
     Write-Host "Advanced Options:" -ForegroundColor Yellow
     Write-Host "  -OutputDir <path>                       # Offline package output directory" -ForegroundColor White
@@ -1064,7 +1271,7 @@ function Write-Help {
 # Handle uninstall mode (legacy)
 if ($Uninstall) {
     Write-Info "Starting uninstallation..."
-    Invoke-QuickUninstall -Force -Quiet:$Quiet -RemoveBackups:$RemoveBackups
+    Uninstall-Dotfiles -LogFile $null
     exit 0
 }
 

@@ -318,14 +318,14 @@ function Test-CommandAvailable {
 
 .DESCRIPTION
     Returns the XDG_CONFIG_HOME environment variable if set,
-    otherwise returns the default Windows path ($env:USERPROFILE\.local\config).
+    otherwise returns the default XDG path ($env:USERPROFILE\.config).
 
 .PARAMETER Subdirectory
     Optional subdirectory to append (e.g., "nvim").
 
 .EXAMPLE
     $nvimConfig = Get-XDGConfigPath "nvim"
-    Returns: C:\Users\Username\.local\config\nvim
+    Returns: C:\Users\Username\.config\nvim
 #>
 function Get-XDGConfigPath {
     [CmdletBinding()]
@@ -337,7 +337,7 @@ function Get-XDGConfigPath {
     if ($env:XDG_CONFIG_HOME) {
         $basePath = $env:XDG_CONFIG_HOME
     } else {
-        $basePath = Join-Path $env:USERPROFILE ".local\config"
+        $basePath = Join-Path $env:USERPROFILE ".config"
     }
 
     if ($Subdirectory) {
@@ -353,14 +353,14 @@ function Get-XDGConfigPath {
 
 .DESCRIPTION
     Returns the XDG_DATA_HOME environment variable if set,
-    otherwise returns the default Windows path ($env:USERPROFILE\.local\data).
+    otherwise returns the default XDG path ($env:USERPROFILE\.local\share).
 
 .PARAMETER Subdirectory
     Optional subdirectory to append (e.g., "vim-data").
 
 .EXAMPLE
     $vimData = Get-XDGDataPath "vim-data"
-    Returns: C:\Users\Username\.local\data\vim-data
+    Returns: C:\Users\Username\.local\share\vim-data
 #>
 function Get-XDGDataPath {
     [CmdletBinding()]
@@ -372,7 +372,7 @@ function Get-XDGDataPath {
     if ($env:XDG_DATA_HOME) {
         $basePath = $env:XDG_DATA_HOME
     } else {
-        $basePath = Join-Path $env:USERPROFILE ".local\data"
+        $basePath = Join-Path $env:USERPROFILE ".local\share"
     }
 
     if ($Subdirectory) {
@@ -387,7 +387,8 @@ function Get-XDGDataPath {
     Initialize XDG base directories if they don't exist.
 
 .DESCRIPTION
-    Creates XDG_CONFIG_HOME and XDG_DATA_HOME directories if they don't exist.
+    Creates XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_STATE_HOME, and XDG_CACHE_HOME
+    directories if they don't exist.
     Also sets environment variables for the current session if not already set.
 
 .PARAMETER SetEnvironment
@@ -405,6 +406,8 @@ function Initialize-XDGPaths {
 
     $configPath = Get-XDGConfigPath
     $dataPath = Get-XDGDataPath
+    $statePath = if ($env:XDG_STATE_HOME) { $env:XDG_STATE_HOME } else { Join-Path $env:USERPROFILE ".local\state" }
+    $cachePath = if ($env:XDG_CACHE_HOME) { $env:XDG_CACHE_HOME } else { Join-Path $env:USERPROFILE ".cache" }
 
     # Create directories if they don't exist
     if (-not (Test-Path $configPath)) {
@@ -417,6 +420,16 @@ function Initialize-XDGPaths {
         Write-Info "Created XDG_DATA_HOME: $dataPath"
     }
 
+    if (-not (Test-Path $statePath)) {
+        New-Item -ItemType Directory -Path $statePath -Force | Out-Null
+        Write-Info "Created XDG_STATE_HOME: $statePath"
+    }
+
+    if (-not (Test-Path $cachePath)) {
+        New-Item -ItemType Directory -Path $cachePath -Force | Out-Null
+        Write-Info "Created XDG_CACHE_HOME: $cachePath"
+    }
+
     # Set environment variables for current session
     if ($SetEnvironment) {
         if (-not $env:XDG_CONFIG_HOME) {
@@ -424,6 +437,12 @@ function Initialize-XDGPaths {
         }
         if (-not $env:XDG_DATA_HOME) {
             $env:XDG_DATA_HOME = $dataPath
+        }
+        if (-not $env:XDG_STATE_HOME) {
+            $env:XDG_STATE_HOME = $statePath
+        }
+        if (-not $env:XDG_CACHE_HOME) {
+            $env:XDG_CACHE_HOME = $cachePath
         }
     }
 }

@@ -313,8 +313,8 @@ function Deploy-NeovimConfig {
         $nvimTargetLinux = Join-Path $env:XDG_CONFIG_HOME "nvim"
         Write-Info "Using XDG_CONFIG_HOME for nvim config: $nvimTargetLinux"
     } else {
-        # Set XDG_CONFIG_HOME to ~/.local if not already set
-        $env:XDG_CONFIG_HOME = "$env:USERPROFILE\.local\config"
+        # Set XDG_CONFIG_HOME to the shared XDG config path if not already set
+        $env:XDG_CONFIG_HOME = "$env:USERPROFILE\.config"
         $nvimTargetLinux = Join-Path $env:XDG_CONFIG_HOME "nvim"
         Write-Info "Setting XDG_CONFIG_HOME to: $env:XDG_CONFIG_HOME"
     }
@@ -412,14 +412,14 @@ function Deploy-AllNeovimConfig {
         if ($env:XDG_CONFIG_HOME) {
             Write-Info "  - Config (XDG):   $env:XDG_CONFIG_HOME\nvim"
         } else {
-            Write-Info "  - Config (XDG):   $env:USERPROFILE\.local\config\nvim"
+            Write-Info "  - Config (XDG):   $env:USERPROFILE\.config\nvim"
         }
         Write-Info "  - Config (Windows): $env:LOCALAPPDATA\nvim"
 
         if ($env:XDG_DATA_HOME) {
             Write-Info "  - Runtime (XDG):   $env:XDG_DATA_HOME\vim-data\vimfiles"
         } else {
-            Write-Info "  - Runtime (XDG):   $env:USERPROFILE\.local\data\vim-data\vimfiles"
+            Write-Info "  - Runtime (XDG):   $env:USERPROFILE\.local\share\vim-data\vimfiles"
         }
         Write-Info "  - Runtime (Windows): $env:LOCALAPPDATA\nvim-data\vimfiles"
 
@@ -449,7 +449,7 @@ function Deploy-PowerShellProfile {
     Write-SectionHeader "Configuring PowerShell Profile"
 
     # Define paths
-    $xdgConfigPath = "$env:USERPROFILE\.config\powershell\profile.ps1"
+    $xdgConfigPath = Join-Path (Get-XDGConfigPath "powershell") "profile.ps1"
     $standardProfilePath = $PROFILE.CurrentUserCurrentHost
     $standardProfileDir = Split-Path -Parent $standardProfilePath
 

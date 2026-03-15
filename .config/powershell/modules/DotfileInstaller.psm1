@@ -74,6 +74,41 @@ function Set-DotfileConfig {
 
 <#
 .SYNOPSIS
+    Run a git command against the bare dotfile repository.
+
+.PARAMETER GitArgs
+    Arguments passed through to git.
+#>
+function Invoke-DotCommand {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$GitArgs
+    )
+
+    $dotDir = $script:Config.DotDir
+
+    if (-not (Test-Path $dotDir)) {
+        throw "Dotfile repository not found at: $dotDir"
+    }
+
+    & git --git-dir="$dotDir" --work-tree="$env:USERPROFILE" @GitArgs
+}
+
+function Get-DotDefaultRemoteRef {
+    [CmdletBinding()]
+    param()
+
+    $originHead = Invoke-DotCommand symbolic-ref --quiet refs/remotes/origin/HEAD 2>$null
+    if ($LASTEXITCODE -eq 0 -and $originHead) {
+        return ($originHead -replace '^refs/remotes/', '')
+    }
+
+    return "origin/master"
+}
+
+<#
+.SYNOPSIS
     Initialize or update the dotfile bare repository.
 
 .DESCRIPTION
@@ -85,31 +120,55 @@ function Set-DotfileConfig {
 #>
 function Initialize-DotfileRepo {
     [CmdletBinding()]
-    param()
+    param(
+        [switch]$Update,
+        [switch]$StatusOnly
+    )
 
     $dotDir = $script:Config.DotDir
     $repoUrl = $script:Config.RepoUrl
 
     if (Test-Path $dotDir) {
-        Write-WarningCustom ".dotfile directory already exists, will update instead of cloning"
-        Push-Location $dotDir
-        & git fetch origin 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            Write-Success "dotfile repository update completed"
-        } else {
+        $isBare = & git --git-dir="$dotDir" rev-parse --is-bare-repository 2>$null
+        if ($LASTEXITCODE -ne 0 -or $isBare -ne "true") {
+            Write-ErrorCustom "$dotDir is not a valid bare git repository"
+            throw "Invalid dotfile repository at $dotDir"
+        }
+
+        if ($StatusOnly) {
+            Write-Success "Dotfile repository is available: $dotDir"
+            return $true
+        }
+
+        if ($Update -or -not $StatusOnly) {
+            Write-Info "Fetching latest dotfile changes..."
+            & git --git-dir="$dotDir" fetch origin 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Success "dotfile repository update completed"
+                return $true
+            }
+
             Write-WarningCustom "Update failed, will continue with existing version"
+            return $false
         }
-        Pop-Location
-    } else {
-        Write-Info "Cloning dotfile repository..."
-        & git clone --bare $repoUrl $dotDir 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            Write-Success "dotfile repository clone completed"
-        } else {
-            Write-ErrorCustom "Failed to clone dotfile repository"
-            throw "Failed to clone dotfile repository from $repoUrl"
-        }
+
+        return $true
     }
+
+    if ($StatusOnly) {
+        Write-WarningCustom "Dotfile repository not found at: $dotDir"
+        return $false
+    }
+
+    Write-Info "Cloning dotfile repository..."
+    & git clone --bare $repoUrl $dotDir 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Success "dotfile repository clone completed"
+        return $true
+    }
+
+    Write-ErrorCustom "Failed to clone dotfile repository"
+    throw "Failed to clone dotfile repository from $repoUrl"
 }
 
 <#
@@ -184,14 +243,6 @@ function Deploy-Dotfiles {
     )
 
     Write-Info "Deploying dotfile..."
-
-    $dotDir = $script:Config.DotDir
-
-    # Create a temporary function for dot operations
-    function Invoke-DotCommand {
-        & git --git-dir="$dotDir" --work-tree="$env:USERPROFILE" $args
-    }
-
     # Check for file conflicts
     Write-Info "Checking for file conflicts..."
     $trackedFiles = Invoke-DotCommand ls-tree -r --name-only HEAD 2>$null
@@ -277,15 +328,12 @@ function Get-DotfileStatus {
     [CmdletBinding()]
     param()
 
-    $dotDir = $script:Config.DotDir
-
-    if (-not (Test-Path $dotDir)) {
-        Write-WarningCustom "Dotfile repository not found at: $dotDir"
+    if (-not (Initialize-DotfileRepo -StatusOnly)) {
         return
     }
 
     Write-Info "Dotfile repository status:"
-    & git --git-dir="$dotDir" --work-tree="$env:USERPROFILE" status
+    Invoke-DotCommand status -sb
 }
 
 <#
@@ -304,50 +352,29 @@ function Update-Dotfiles {
 
     Write-SectionHeader "Updating dotfiles"
 
-    $dotDir = $script:Config.DotDir
-
-    if (-not (Test-Path $dotDir)) {
+    if (-not (Initialize-DotfileRepo -Update)) {
         Write-ErrorCustom "Dotfile repository not found. Run Initialize-DotfileRepo first."
         return $false
     }
 
-    # Fetch latest changes
-    Write-Info "Fetching latest changes..."
-    Push-Location $dotDir
-    & git fetch origin 2>$null
-    $fetchResult = $LASTEXITCODE
-    Pop-Location
+    $targetRef = Get-DotDefaultRemoteRef
 
-    if ($fetchResult -ne 0) {
-        Write-ErrorCustom "Failed to fetch updates"
+    Write-Info "Deploying latest dotfiles from $targetRef..."
+    Invoke-DotCommand reset --hard $targetRef 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-ErrorCustom "Failed to reset repository to $targetRef"
         return $false
     }
 
-    # Get current branch
-    $currentBranch = & git --git-dir="$dotDir" branch --show-current
+    Deploy-Dotfiles
 
-    # Check if there are updates
-    $localCommit = & git --git-dir="$dotDir" rev-parse HEAD
-    $remoteCommit = & git --git-dir="$dotDir" rev-parse "origin/$currentBranch"
-
-    if ($localCommit -eq $remoteCommit) {
-        Write-Success "Already up to date"
-        return $true
-    }
-
-    Write-Info "Updates available, deploying..."
-
-    # Deploy the latest changes
-    & git --git-dir="$dotDir" --work-tree="$env:USERPROFILE" fetch origin 2>$null
-    & git --git-dir="$dotDir" --work-tree="$env:USERPROFILE" checkout origin/$currentBranch -f 2>$null
-
-    if ($LASTEXITCODE -eq 0) {
+    if ($?) {
         Write-Success "Dotfiles updated successfully"
         return $true
-    } else {
-        Write-ErrorCustom "Failed to update dotfiles"
-        return $false
     }
+
+    Write-ErrorCustom "Failed to update dotfiles"
+    return $false
 }
 
 <#
@@ -444,6 +471,7 @@ function Uninstall-Dotfile {
 Export-ModuleMember -Function @(
     'Get-DotfileConfig',
     'Set-DotfileConfig',
+    'Invoke-DotCommand',
     'Initialize-DotfileRepo',
     'Backup-ExistingConfig',
     'Deploy-Dotfiles',

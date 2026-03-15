@@ -1,335 +1,177 @@
-# Windows 开发环境一键部署
+# Cross-Platform Dotfile Manager
 
-一个完整的 Windows 开发环境自动化部署和配置管理系统。
+这个仓库维护一套面向 Linux、macOS、Windows 的个人 dotfile，并把安装、更新、离线部署、卸载、重装统一到两套入口脚本：
 
-## 🚀 功能特性
+- `install.sh`：Linux / macOS
+- `install.ps1`：Windows
 
-- 一键安装所有开发工具（Git, Node.js, Neovim, PowerShell 等）
-- 自动部署配置文件（PowerShell, Neovim, Oh-My-Posh）
-- XDG Base Directory 支持，Linux 风格的配置路径
-- 完整的卸载功能，可选择性清理
-- 离线部署支持，内网机器工具分发
+当前推荐使用统一生命周期动作，而不是分别记忆多套历史脚本。
 
-## 📁 目录结构
+## 生命周期契约
 
-```
-.
-├── install.ps1                    # Windows PowerShell 主安装脚本
-├── install.sh                     # Linux/macOS Bash 安装脚本
-├── scripts/                       # PowerShell 脚本
-│   ├── installation/              # 安装相关脚本
-│   │   └── Install-Tools.ps1     # 仅安装工具
-│   ├── deployment/               # 部署相关脚本
-│   │   ├── Deploy-Dotfiles.ps1   # 仅部署配置
-│   │   ├── Update-Dotfiles.ps1   # 更新配置
-│   │   ├── Collect-Local-Tools.ps1 # 收集本地工具
-│   │   └── Collect-Local-Tools-Simple.ps1 # 简化版收集
-│   ├── utilities/               # 实用工具脚本
-│   │   ├── Show-DotfileStatus.ps1    # 显示状态
-│   │   ├── Uninstall-Dotfile.ps1    # 完整卸载
-│   │   └── Quick-Uninstall.ps1      # 快速卸载
-│   ├── testing/                 # 测试验证脚本
-│   │   ├── Verify-Configuration.ps1  # 验证配置
-│   │   ├── Verify-Refactoring.ps1   # 验证重构
-│   │   └── Simple-Test.ps1      # 简单测试
-│   └── offline-deployment/       # 离线部署包
-│       ├── Deploy-To-Offline-Machine.ps1
-│       └── README.md
-├── docs/                        # 文档目录
-│   ├── getting-started/        # 入门指南
-│   ├── installation/          # 安装指南
-│   │   ├── windows-installation-guide.md
-│   │   └── windows-testing-checklist.md
-│   ├── configuration/         # 配置说明
-│   │   └── WINDOWS_XDG_GUIDE.md
-│   ├── development/           # 开发文档
-│   ├── reference/             # 参考资料
-│   ├── usage/                # 使用指南
-│   │   └── SCRIPT_USAGE_GUIDE.md
-│   └── plans/               # 计划文档
-├── archive/                  # 归档文档
-│   ├── POWERSHELL_REFACTOR_SUMMARY.md
-│   ├── REFACTORING_SUMMARY.md
-│   └── REFACTORING_COMPLETE.md
-├── .config/powershell/      # Windows 模块化代码
-│   └── modules/
-│       ├── UI.psm1          # 用户界面
-│       ├── ToolInstaller.psm1    # 工具安装
-│       ├── ConfigDeployer.psm1  # 配置部署
-│       ├── Verifier.psm1        # 验证功能
-│       └── DotfileInstaller.psm1 # dotfile 管理
-└── README.md                # 说明文档
-```
+| 动作 | Linux / macOS | Windows | 说明 |
+|------|----------------|---------|------|
+| 安装 | `bash install.sh install` | `.\install.ps1 -Action Install` | 一键安装工具与配置 |
+| 仅部署 | `bash install.sh deploy` | `.\install.ps1 -Action Deploy` | 只部署 dotfile，跳过工具安装 |
+| 更新 | `bash install.sh update` | `.\install.ps1 -Action Update` | 拉取最新仓库并重新部署 |
+| 状态 | `bash install.sh status` | `.\install.ps1 -Action Status` | 查看 XDG 路径与仓库状态 |
+| 验证 | `bash install.sh verify` | `.\install.ps1 -Action Verify` | 校验安装结果 |
+| 打包 | `bash install.sh package` | `.\install.ps1 -Action Package` | 生成离线部署包 |
+| 离线部署 | `bash install.sh offline-deploy <bundle>` | `.\install.ps1 -Action OfflineDeploy` | 使用已有离线包执行部署 |
+| 卸载 | `bash install.sh uninstall` | `.\install.ps1 -Action Uninstall` | 手动卸载已部署配置 |
+| 重装 | `bash install.sh reinstall` | `.\install.ps1 -Action Reinstall` | 卸载后重新安装 |
 
-## 📚 文档导航
+## XDG 路径策略
 
-### 🚀 入门指南
-- [Windows 安装指南](docs/installation/windows-installation-guide.md) - 详细的 Windows 系统安装步骤
-- [脚本使用指南](docs/usage/SCRIPT_USAGE_GUIDE.md) - 所有 PowerShell 脚本的使用方法
-- [XDG 配置说明](docs/configuration/WINDOWS_XDG_GUIDE.md) - Linux 风格配置路径说明
+三平台都按统一语义使用 XDG 目录，默认值如下：
 
-### 📋 参考资料
-- [更新日志](docs/CHANGELOG.md) - 版本更新历史
-- [开发文档](docs/development/) - 内部开发文档
-- [归档文档](archive/) - 历史版本和重构记录
+| 语义 | Unix 默认值 | Windows 默认值 |
+|------|-------------|----------------|
+| 配置 | `$HOME/.config` | `%USERPROFILE%\.config` |
+| 数据 | `$HOME/.local/share` | `%USERPROFILE%\.local\share` |
+| 状态 | `$HOME/.local/state` | `%USERPROFILE%\.local\state` |
+| 缓存 | `$HOME/.cache` | `%USERPROFILE%\.cache` |
 
-## 🚀 安装方式
+对于不支持 XDG 的兼容项，仓库仍会保留必要的传统文件，例如 `.vim`、`.zprofile` 和 PowerShell bootstrap profile。
 
-### Windows PowerShell 安装
+## 一键安装与自动更新
 
-```powershell
-# 方式 1: 直接从 GitHub 安装
-irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1 | iex
+在线安装路径适合日常开发环境。安装完成后，通过 `update` 动作执行自动更新。
 
-# 方式 2: 下载后本地运行
-.\install.ps1
-
-# 方式 3: 只部署配置，不安装工具
-.\install.ps1 -OnlyDotfile
-
-# 方式 4: 模拟运行，查看将要执行的操作
-.\install.ps1 -DryRun
-```
-
-### Linux/macOS Bash 安装
+### Linux / macOS
 
 ```bash
-# 方式 1: 直接运行（安装 dotfile + 工具）
 bash install.sh install
-
-# 方式 2: 预览模式（不执行实际操作）
-DRY_RUN=1 bash install.sh install
-
-# 方式 3: 只部署 dotfile（跳过工具安装）
-SKIP_INSTALL=1 bash install.sh install
-
-# 卸载
-bash install.sh uninstall
+bash install.sh deploy
+bash install.sh update
+bash install.sh status
+bash install.sh verify
 ```
 
-## 🛠️ 安装方式
-
-### 1. 一键完整安装（推荐）
+### Windows
 
 ```powershell
-# 直接从 GitHub 安装
-irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1 | iex
+.\install.ps1 -Action Install
+.\install.ps1 -Action Deploy
+.\install.ps1 -Action Update
+.\install.ps1 -Action Status
+.\install.ps1 -Action Verify
+```
 
-# 或下载后本地运行
+Windows 兼容模式仍然保留：
+
+```powershell
 .\install.ps1
-```
-
-### 2. 自定义安装
-
-```powershell
-# 只部署配置，不安装工具
-.\install.ps1 -OnlyDotfile
-
-# 只安装工具，不部署配置
 .\install.ps1 -SkipTools
-
-# 模拟运行，查看将要执行的操作
-.\install.ps1 -DryRun
-```
-
-## 🔧 工具列表
-
-### 核心工具
-- **Git** - 版本控制
-- **Node.js LTS** - JavaScript 运行环境
-- **Neovim** - 现代化 Vim 编辑器
-- **PowerShell** - Windows PowerShell
-- **Oh-My-Posh** - PowerShell 主题引擎
-
-### 可选工具
-- **Windows Terminal** - 现代终端
-- **VS Code** - 代码编辑器
-- **Python** - Python 解释器
-- **.NET SDK 8** - .NET 开发环境
-- **Docker Desktop** - 容器化平台
-
-## 🎨 配置特性
-
-### XDG Base Directory 支持
-- Neovim 配置路径：`~/.config/nvim`
-- 自动创建 XDG 环境变量
-- 兼容 Linux 和 Windows
-
-### Oh-My-Posh 主题
-- 自动检测并安装主题
-- 支持自定义主题文件
-- 错误降级到默认主题
-
-### PowerShell 增强
-- PSReadLine 自动补全
-- Terminal-Icons 文件图标
-- PSFzf 模糊搜索
-- 自定义 `dot` 命令管理 dotfiles
-
-## 🔍 验证和更新
-
-### 验证安装
-```powershell
-# 验证所有配置
-.\scripts\testing\Verify-Configuration.ps1
-
-# 查看详细输出
-.\scripts\testing\Verify-Configuration.ps1 -Verbose
-```
-
-### 更新配置
-```powershell
-# 更新 dotfiles
-.\scripts\deployment\Update-Dotfiles.ps1
-
-# 查看状态
-.\scripts\utilities\Show-DotfileStatus.ps1
-```
-
-## 🧹 卸载功能
-
-### 快速卸载（推荐）
-```powershell
-# 移除配置但保留工具
-.\install.ps1 -Uninstall
-
-# 或使用独立脚本
-.\scripts\utilities\Quick-Uninstall.ps1
-
-# 静默模式并删除备份
-.\scripts\utilities\Quick-Uninstall.ps1 -Quiet -RemoveBackups
-```
-
-### 完整卸载
-```powershell
-# 完全卸载所有内容
-.\scripts\utilities\Uninstall-Dotfile.ps1
-
-# 自定义选项
-.\scripts\utilities\Uninstall-Dotfile.ps1 -RemoveBackups -KeepProfile
-```
-
-## 📦 离线部署
-
-### 1. 从已安装系统收集工具
-```powershell
-# 收集所有工具
-.\scripts\deployment\Collect-Local-Tools.ps1
-
-# 收集指定工具
-.\scripts\deployment\Collect-Local-Tools.ps1 -IncludeTools "Git", "NodeJS", "Neovim"
-
-# 创建压缩包
-.\scripts\deployment\Collect-Local-Tools.ps1 -Compress -PackageName "DevTools-Offline"
-```
-
-### 2. 部署到离线机器
-1. 将生成的 `offline-deployment` 文件夹复制到离线机器
-2. 以管理员身份运行 PowerShell
-3. 执行：
-```powershell
-cd offline-deployment
-.\Deploy-To-Offline-Machine.ps1
-```
-
-## ⚙️ 使用场景
-
-### 场景1：全新开发环境
-```powershell
-# 一键安装所有内容
-.\install.ps1
-```
-
-### 场景2：迁移开发环境
-```powershell
-# 在新电脑上只部署配置
 .\install.ps1 -OnlyDotfile
+.\install.ps1 -DryRun
+.\install.ps1 -Uninstall
 ```
 
-### 场景3：更新工具配置
+如果你直接从远程执行 Windows 一键安装，入口仍然是：
+
 ```powershell
-# 更新 dotfiles
-.\scripts\deployment\Update-Dotfiles.ps1
-
-# 验证配置
-.\scripts\testing\Verify-Configuration.ps1
+irm https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.ps1 | iex
 ```
 
-### 场景4：内网离线部署
+## 离线打包与离线部署
+
+### Linux / macOS
+
+`install.sh package` 现在明确表示“生成离线包”，底层调用 `scripts/offline-export.sh`。
+
+```bash
+# 生成离线包
+bash install.sh package
+
+# 非交互批量打包
+AUTO_YES=1 bash scripts/offline-export.sh
+
+# 预览打包动作
+DRY_RUN=1 bash install.sh package
+
+# 在目标机器上使用离线包
+bash install.sh offline-deploy ./scripts/dist/dotfiles-offline-<version>.sh
+```
+
+### Windows
+
 ```powershell
-# 收集工具
-.\scripts\deployment\Collect-Local-Tools.ps1 -Compress
-
-# 在离线机器部署
-.\offline-deployment\Deploy-To-Offline-Machine.ps1
+.\install.ps1 -Action Package
+.\install.ps1 -Action Package -Compress
+.\install.ps1 -Action OfflineDeploy
 ```
 
-## 🔧 高级配置
+Windows 离线包会把安装脚本、PowerShell 模块、工具安装器和当前配置快照一起打包，并在包内生成 `scripts\offline-install.ps1`。
 
-### 环境变量
-脚本会自动设置以下环境变量：
-- `XDG_CONFIG_HOME` - 配置文件目录
-- `XDG_DATA_HOME` - 数据文件目录
-- `XDG_STATE_HOME` - 状态文件目录
+## 卸载与重装
 
-### 自定义主题
-Oh-My-Posh 主题文件存放在 `~/.poshthemes` 目录
+两个入口都支持手动卸载和重装：
 
-### Git 配置
-自动添加 `dot` 命令，用于管理 dotfiles：
+```bash
+bash install.sh uninstall
+bash install.sh reinstall
+```
+
 ```powershell
-dot status      # 查看配置文件状态
-dot add .vimrc  # 添加配置文件
-dot push        # 提交配置更改
+.\install.ps1 -Action Uninstall
+.\install.ps1 -Action Reinstall
 ```
 
-## 📋 系统要求
+Windows 兼容模式仍保留 `-Uninstall` 开关；Unix 端可通过 `NO_BACKUP=1` 控制是否跳过卸载前备份。
 
-- Windows 10 或更高版本
-- PowerShell 5.1 或更高版本
-- 管理员权限（用于安装工具）
-- 网络连接（首次安装时）
+## 预览与非交互模式
 
-## 🚨 注意事项
+### Linux / macOS
 
-1. **管理员权限**：某些工具安装需要管理员权限
-2. **备份重要配置**：卸载前请备份重要配置文件
-3. **重启 PowerShell**：某些更改需要重启 PowerShell 才能生效
-4. **网络连接**：首次安装需要稳定的网络连接
+```bash
+DRY_RUN=1 bash install.sh install
+DRY_RUN=1 bash install.sh reinstall
+DRY_RUN=1 bash install.sh package
+AUTO_YES=1 bash scripts/offline-export.sh
+```
 
-## 📞 故障排除
+### Windows
 
-### 常见问题
-
-**1. PowerShell 语法错误**
 ```powershell
-# 检查 PowerShell 版本
-$PSVersionTable.PSVersion
+.\install.ps1 -DryRun
+.\install.ps1 -Action Package -IncludeDocumentation
+.\install.ps1 -Action Uninstall -Quiet -RemoveBackups
 ```
 
-**2. 工具安装失败**
-```powershell
-# 查看安装日志
-Get-Content "$env:TEMP\dotfile_install_*.log"
+## 目录结构
+
+```text
+.
+├── install.sh
+├── install.ps1
+├── .config/
+├── .vim/
+├── scripts/
+│   ├── lib/
+│   ├── export.sh
+│   ├── collect.sh
+│   ├── package.sh
+│   ├── offline-collect.sh
+│   ├── offline-package.sh
+│   └── offline-export.sh
+├── tests/
+│   └── install_contract.bats
+└── docs/
 ```
 
-**3. XDG 路径问题**
-```powershell
-# 检查 XDG 变量
-echo $env:XDG_CONFIG_HOME
+## 旧脚本状态
+
+- `scripts/export.sh` 仍保留，但属于 legacy 在线导出路径，不再代表 Unix 主入口的 `package` 动作。
+- `scripts/offline-export.sh` 是 Unix 离线打包的底层脚本，推荐通过 `bash install.sh package` 调用。
+- Windows 推荐入口只有 `install.ps1`；不要再把旧的分散包装脚本当作主流程文档。
+
+## 验证
+
+仓库提供基础契约测试，重点防止安装动作、帮助文本和 XDG 约定回退：
+
+```bash
+bats tests/install_contract.bats
+bash -n install.sh
+bash -n scripts/offline-export.sh
 ```
-
-### 获取帮助
-
-每个脚本都包含详细的帮助信息：
-```powershell
-# 查看主安装脚本帮助
-Get-Help .\install.ps1 -Full
-
-# 或使用 -? 参数
-.\install.ps1 -?
-```
-
----
-
-*最后更新：2026-03-06*

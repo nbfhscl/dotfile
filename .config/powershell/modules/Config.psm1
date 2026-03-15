@@ -355,7 +355,7 @@ function Get-XDGConfiguration {
             if ($env:XDG_CONFIG_HOME) {
                 $env:XDG_CONFIG_HOME
             } else {
-                Join-Path $env:USERPROFILE ".local\config"
+                Join-Path $env:USERPROFILE ".config"
             }
         )
 
@@ -364,7 +364,7 @@ function Get-XDGConfiguration {
             if ($env:XDG_DATA_HOME) {
                 $env:XDG_DATA_HOME
             } else {
-                Join-Path $env:USERPROFILE ".local\data"
+                Join-Path $env:USERPROFILE ".local\share"
             }
         )
 
@@ -391,7 +391,7 @@ function Get-XDGConfiguration {
             if ($env:XDG_CONFIG_HOME) {
                 Join-Path $env:XDG_CONFIG_HOME "nvim"
             } else {
-                Join-Path $env:USERPROFILE ".local\config\nvim"
+                Join-Path $env:USERPROFILE ".config\nvim"
             }
         )
 
@@ -399,7 +399,7 @@ function Get-XDGConfiguration {
             if ($env:XDG_DATA_HOME) {
                 Join-Path $env:XDG_DATA_HOME "vim-data"
             } else {
-                Join-Path $env:USERPROFILE ".local\data\vim-data"
+                Join-Path $env:USERPROFILE ".local\share\vim-data"
             }
         )
 
@@ -407,7 +407,7 @@ function Get-XDGConfiguration {
             if ($env:XDG_DATA_HOME) {
                 Join-Path $env:XDG_DATA_HOME "vim-data\vimfiles"
             } else {
-                Join-Path $env:USERPROFILE ".local\data\vim-data\vimfiles"
+                Join-Path $env:USERPROFILE ".local\share\vim-data\vimfiles"
             }
         )
     }

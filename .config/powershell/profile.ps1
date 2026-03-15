@@ -43,9 +43,25 @@ if (Get-Module -ListAvailable -Name PSFzf) {
     Set-PsFzfOption -PSReadlineChordProvider Ctrl+t -PsReadlineChordReverseHistory Ctrl+r
 }
 
+# --- XDG path defaults ---
+if (-not $env:XDG_CONFIG_HOME) {
+    $env:XDG_CONFIG_HOME = "$env:USERPROFILE\.config"
+}
+
+if (-not $env:XDG_DATA_HOME) {
+    $env:XDG_DATA_HOME = "$env:USERPROFILE\.local\share"
+}
+
+if (-not $env:XDG_STATE_HOME) {
+    $env:XDG_STATE_HOME = "$env:USERPROFILE\.local\state"
+}
+
+if (-not $env:XDG_CACHE_HOME) {
+    $env:XDG_CACHE_HOME = "$env:USERPROFILE\.cache"
+}
+
 # --- psmux Configuration ---
-# Point psmux to your dotfiles directory
-$env:PSMUX_CONFIG = "$env:USERPROFILE\.config\tmux\tmux.conf"
+$env:PSMUX_CONFIG = "$env:XDG_CONFIG_HOME\tmux\tmux.conf"
 
 # --- Alias for tmux-like muscle memory ---
 if (Get-Command psmux -ErrorAction SilentlyContinue) {
