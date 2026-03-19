@@ -1,6 +1,12 @@
 #!/bin/bash
 # dotfile-manager.sh - Unified dotfile installation and removal management
-# Usage: bash dotfile-manager.sh [install|uninstall] [options]
+#
+# REMOTE INSTALL (one-click):
+#   curl -fsSL https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.sh | bash -s -- deploy
+#
+# LOCAL INSTALL:
+#   bash install.sh [install|deploy|update|status|verify|package|offline-deploy|uninstall|reinstall]
 #
 # Environment variables for install:
 #   DRY_RUN=1       - Preview operations without executing
@@ -9,6 +15,70 @@
 # Environment variables for uninstall:
 #   NO_BACKUP=1     - Skip creating backup before removal
 
+# ============================================================================
+# REMOTE EXECUTION HANDLER
+# ============================================================================
+# NOTE: This check must happen BEFORE 'set -euo pipefail' because
+# BASH_SOURCE[0] is unset in pipe mode, which would cause an error.
+
+# Detect if script is being executed via pipe (curl | bash)
+# In pipe mode: BASH_SOURCE[0] is empty, $0 is "bash"
+# In direct mode: BASH_SOURCE[0] is the script path
+if [[ -z "${BASH_SOURCE[0]:-}" ]]; then
+    # Remote execution mode - clone repo and execute locally
+    readonly _REMOTE_REPO_URL="https://github.com/nbfhscl/dotfile.git"
+    readonly _REMOTE_DOT_DIR="${DOT_DIR:-$HOME/.dotfile}"
+    readonly _REMOTE_TEMP_DIR="$(mktemp -d)"
+
+    # Get requested action (default to 'install' if not specified)
+    _REMOTE_ACTION="${1:-install}"
+
+    _remote_log() { echo -e "\033[0;32m[INFO]\033[0m $1"; }
+    _remote_err() { echo -e "\033[0;31m[ERROR]\033[0m $1" >&2; }
+
+    _remote_log "🚀 Remote install mode"
+    _remote_log "Repository: $_REMOTE_REPO_URL"
+    _remote_log "Target directory: $_REMOTE_DOT_DIR"
+
+    # Check for required tools
+    if ! command -v git &> /dev/null; then
+        _remote_err "git is required but not installed. Please install git first."
+        rm -rf "$_REMOTE_TEMP_DIR"
+        exit 1
+    fi
+
+    # Handle existing dotfile directory
+    if [[ -d "$_REMOTE_DOT_DIR" ]]; then
+        if [[ "$_REMOTE_ACTION" == "install" ]]; then
+            _remote_log "Existing dotfile found. Updating..."
+            cd "$_REMOTE_DOT_DIR"
+            if git fetch origin && git reset --hard origin/master 2>/dev/null; then
+                _remote_log "Repository updated successfully"
+            else
+                _remote_log "Update failed, proceeding with existing version"
+            fi
+        fi
+    else
+        # Clone repository (shallow clone for speed)
+        _remote_log "Cloning repository..."
+        if ! git clone --depth 1 --single-branch "$_REMOTE_REPO_URL" "$_REMOTE_DOT_DIR" 2>/dev/null; then
+            _remote_err "Failed to clone repository"
+            rm -rf "$_REMOTE_TEMP_DIR"
+            exit 1
+        fi
+        _remote_log "Repository cloned successfully"
+    fi
+
+    # Execute the local install script with requested action
+    _remote_log "Executing: bash $_REMOTE_DOT_DIR/install.sh $_REMOTE_ACTION"
+    cd "$_REMOTE_DOT_DIR"
+
+    # Clean up temp directory and exec
+    rm -rf "$_REMOTE_TEMP_DIR"
+    exec bash "$_REMOTE_DOT_DIR/install.sh" "$_REMOTE_ACTION"
+fi
+
+# Enable strict mode after remote execution check
 set -euo pipefail
 
 # ============================================================================
@@ -896,65 +966,86 @@ run_uninstallation() {
 # ============================================================================
 
 show_help() {
-  cat << EOF
-Usage: bash $SCRIPT_NAME <action> [options]
+  cat << 'EOF'
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                     DOTFILE MANAGER - 帮助文档                                ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
 
-Actions:
-  install         Install dotfiles and required tools
-  deploy          Deploy dotfiles only, skip tool installation
-  update          Update and redeploy an existing dotfile installation
-  status          Show lifecycle and repository status
-  verify          Verify XDG paths and installation state
-  package         Build an offline deployment bundle from local files
-  offline-deploy  Install from an existing offline bundle
-  uninstall       Remove dotfiles (creates backup by default)
-  reinstall       Reinstall dotfiles with backup protection
+📥 快速开始
+═══════════════════════════════════════════════════════════════════════════════
 
-Install Options:
-  DRY_RUN=1        Preview operations without executing
-  SKIP_INSTALL=1   Deploy dotfiles only, skip tool installation
+1. 一键远程安装（推荐）:
+   curl -fsSL https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.sh | bash
 
-Uninstall Options:
-  NO_BACKUP=1      Skip creating backup before removal
+2. 远程安装（仅部署配置，跳过工具）:
+   curl -fsSL https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.sh | bash -s -- deploy
 
-Environment Variables:
-  REPO_URL         Dotfile repository URL
-  DOT_DIR          Dotfile storage directory (default: \$HOME/.dotfile)
+3. 本地安装:
+   bash install.sh <action>
 
-Examples:
-  # Install everything
-  bash $SCRIPT_NAME install
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ 操作模式 (Actions)                                                            │
+└───────────────────────────────────────────────────────────────────────────────┘
 
-  # Preview installation
-  DRY_RUN=1 bash $SCRIPT_NAME install
+  install         安装 dotfiles 和必需工具
+  deploy          仅部署配置，跳过工具安装
+  update          更新现有 dotfile 配置
+  status          显示生命周期状态和仓库信息
+  verify          验证 XDG 路径和安装状态
+  package         创建离线部署包
+  offline-deploy  从离线包安装
+  uninstall       卸载 dotfiles（默认创建备份）
+  reinstall       重新安装（带备份保护）
 
-  # Deploy dotfiles only
-  bash $SCRIPT_NAME deploy
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ 环境变量 (Environment Variables)                                              │
+└───────────────────────────────────────────────────────────────────────────────┘
 
-  # Update an existing install
-  bash $SCRIPT_NAME update
+  DRY_RUN=1        预览模式，显示将要执行的操作
+  SKIP_INSTALL=1   跳过工具安装，仅部署配置
+  NO_BACKUP=1      卸载时不创建备份
+  DOT_DIR          自定义 dotfile 目录（默认: $HOME/.dotfile）
 
-  # Show runtime status and XDG paths
-  DRY_RUN=1 bash $SCRIPT_NAME status
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ 使用示例 (Examples)                                                           │
+└───────────────────────────────────────────────────────────────────────────────┘
 
-  # Verify current installation contract
-  DRY_RUN=1 bash $SCRIPT_NAME verify
+  # 完整安装（工具 + 配置）
+  bash install.sh install
 
-  # Build a portable package
-  bash $SCRIPT_NAME package
+  # 预览安装（不实际执行）
+  DRY_RUN=1 bash install.sh install
 
-  # Install from an offline bundle
-  bash $SCRIPT_NAME offline-deploy ./scripts/dist/dotfiles-offline.sh
+  # 仅部署配置（跳过工具安装）
+  bash install.sh deploy
 
-  # Uninstall with backup
-  bash $SCRIPT_NAME uninstall
+  # 更新现有安装
+  bash install.sh update
 
-  # Reinstall with backup preview
-  DRY_RUN=1 bash $SCRIPT_NAME reinstall
+  # 显示运行状态和 XDG 路径
+  bash install.sh status
 
-  # Uninstall without backup
-  NO_BACKUP=1 bash $SCRIPT_NAME uninstall
+  # 验证安装状态
+  bash install.sh verify
 
+  # 创建离线部署包
+  bash install.sh package
+
+  # 从离线包安装
+  bash install.sh offline-deploy ./scripts/dist/dotfiles-offline.sh
+
+  # 卸载（保留备份）
+  bash install.sh uninstall
+
+  # 卸载（不创建备份）
+  NO_BACKUP=1 bash install.sh uninstall
+
+  # 重新安装
+  bash install.sh reinstall
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  项目仓库: https://github.com/nbfhscl/dotfile                                 ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
 EOF
 }
 
