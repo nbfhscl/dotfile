@@ -49,13 +49,24 @@ if [[ -z "${BASH_SOURCE[0]:-}" ]]; then
 
     # Handle existing dotfile directory
     if [[ -d "$_REMOTE_DOT_DIR" ]]; then
-        if [[ "$_REMOTE_ACTION" == "install" ]]; then
+        # Check if install.sh exists
+        if [[ ! -f "$_REMOTE_DOT_DIR/install.sh" ]]; then
+            _remote_log "Existing directory is incomplete, re-cloning..."
+            rm -rf "$_REMOTE_DOT_DIR"
+            _remote_log "Cloning repository..."
+            if ! git clone --depth 1 --single-branch "$_REMOTE_REPO_URL" "$_REMOTE_DOT_DIR" 2>/dev/null; then
+                _remote_err "Failed to clone repository"
+                rm -rf "$_REMOTE_TEMP_DIR"
+                exit 1
+            fi
+            _remote_log "Repository cloned successfully"
+        elif [[ "$_REMOTE_ACTION" == "install" ]]; then
             _remote_log "Existing dotfile found. Updating..."
             cd "$_REMOTE_DOT_DIR"
             if git fetch origin && git reset --hard origin/master 2>/dev/null; then
                 _remote_log "Repository updated successfully"
             else
-                _remote_log "Update failed, proceeding with existing version"
+                _remote_log "Update failed, using existing version"
             fi
         fi
     else
@@ -67,6 +78,13 @@ if [[ -z "${BASH_SOURCE[0]:-}" ]]; then
             exit 1
         fi
         _remote_log "Repository cloned successfully"
+    fi
+
+    # Final check: ensure install.sh exists
+    if [[ ! -f "$_REMOTE_DOT_DIR/install.sh" ]]; then
+        _remote_err "install.sh not found in $_REMOTE_DOT_DIR after clone/update"
+        rm -rf "$_REMOTE_TEMP_DIR"
+        exit 1
     fi
 
     # Execute the local install script with requested action
