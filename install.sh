@@ -667,6 +667,126 @@ verify_installation() {
   return $failed
 }
 
+# ============================================================================
+# POST-INSTALLATION TESTS
+# ============================================================================
+
+run_post_install_tests() {
+  echo ""
+  echo "=========================================="
+  echo "  Post-Installation Tests"
+  echo "=========================================="
+  echo ""
+
+  local total_tests=0
+  local passed_tests=0
+  local failed_tests=0
+
+  # Test helper
+  test_command() {
+    local name="$1"
+    local command="$2"
+    ((total_tests++))
+
+    if eval "$command" >/dev/null 2>&1; then
+      log "  ✓ $name"
+      ((passed_tests++))
+      return 0
+    else
+      warn "  ✗ $name"
+      ((failed_tests++))
+      return 1
+    fi
+  }
+
+  # Test 1: Core commands availability
+  log "Testing core commands..."
+  test_command "git command" "command -v git"
+  test_command "zsh command" "command -v zsh"
+  test_command "vim command" "command -v vim"
+  test_command "nvim command" "command -v nvim"
+  test_command "tmux command" "command -v tmux"
+  test_command "node command" "command -v node"
+  test_command "npm command" "command -v npm"
+  echo ""
+
+  # Test 2: Dotfile repository
+  log "Testing dotfile repository..."
+  test_command "Dotfile directory exists" "[ -d '$DOT_DIR' ]"
+  test_command "Dotfile is bare repository" "git --git-dir='$DOT_DIR' rev-parse --is-bare-repository"
+  test_command "Dot alias works" "alias dot >/dev/null 2>&1 || command -v dot"
+  echo ""
+
+  # Test 3: XDG paths
+  log "Testing XDG paths..."
+  ensure_xdg_paths
+  test_command "XDG_CONFIG_HOME exists" "[ -d '$XDG_CONFIG_HOME' ]"
+  test_command "XDG_DATA_HOME exists" "[ -d '$XDG_DATA_HOME' ]"
+  test_command "XDG_STATE_HOME exists" "[ -d '$XDG_STATE_HOME' ]"
+  test_command "XDG_CACHE_HOME exists" "[ -d '$XDG_CACHE_HOME' ]"
+  echo ""
+
+  # Test 4: ZSH plugins
+  log "Testing ZSH ecosystem..."
+  test_command "oh-my-zsh installed" "[ -d '$HOME/.oh-my-zsh' ]"
+  test_command "zsh-autosuggestions installed" "[ -d '$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions' ]"
+  test_command "zsh-syntax-highlighting installed" "[ -d '$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting' ]"
+  echo ""
+
+  # Test 5: CLI tools
+  log "Testing CLI tools..."
+  test_command "zoxide installed" "command -v zoxide"
+  test_command "fzf installed" "command -v fzf"
+  test_command "tmux plugin manager (TPM) installed" "[ -d '$HOME/.tmux/plugins/tpm' ]"
+  echo ""
+
+  # Test 6: Config files deployment
+  log "Testing config files..."
+  test_command "Zsh config deployed" "[ -f '$XDG_CONFIG_HOME/zsh/.zshrc' ] || [ -f '$HOME/.zshrc' ]"
+  test_command "Vim config deployed" "[ -f '$HOME/.vimrc' ] || [ -d '$XDG_CONFIG_HOME/vim' ]"
+  test_command "Neovim config deployed" "[ -d '$XDG_CONFIG_HOME/nvim' ]"
+  test_command "Tmux config deployed" "[ -f '$XDG_CONFIG_HOME/tmux/tmux.conf' ] || [ -f '$HOME/.tmux.conf' ]"
+  echo ""
+
+  # Test 7: Neovim version check
+  log "Testing Neovim..."
+  if command -v nvim >/dev/null 2>&1; then
+    local nvim_version
+    nvim_version="$(nvim --version | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+    if [ -n "$nvim_version" ]; then
+      log "  ✓ Neovim version: $nvim_version"
+      ((total_tests++))
+      ((passed_tests++))
+    fi
+  fi
+  echo ""
+
+  # Test 8: Git operations (if dot alias works)
+  log "Testing git operations..."
+  if alias dot >/dev/null 2>&1 || command -v dot >/dev/null 2>&1; then
+    test_command "Dot status command" "git --git-dir='$DOT_DIR' status >/dev/null 2>&1"
+    test_command "Dot remote configured" "git --git-dir='$DOT_DIR' remote -v | grep -q origin"
+  else
+    warn "  ⚠ Dot alias not available, skipping git tests"
+  fi
+  echo ""
+
+  # Summary
+  echo "=========================================="
+  log "Test Summary:"
+  log "  Total: $total_tests"
+  log "  Passed: $passed_tests"
+  if [ $failed_tests -gt 0 ]; then
+    warn "  Failed: $failed_tests"
+  else
+    log "  Failed: 0"
+  fi
+  echo "=========================================="
+  echo ""
+
+  return $failed_tests
+}
+
 print_runtime_status() {
   ensure_xdg_paths
 
@@ -906,6 +1026,17 @@ run_installation() {
   else
     local failed_count=$?
     warn "$failed_count tools failed to install"
+  fi
+
+  # Run post-installation tests
+  echo ""
+  run_post_install_tests
+  local test_result=$?
+
+  if [ $test_result -eq 0 ]; then
+    log "All post-installation tests passed!"
+  else
+    warn "Some post-installation tests failed. Please review the output above."
   fi
 
   echo ""
