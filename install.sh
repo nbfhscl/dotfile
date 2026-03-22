@@ -25,7 +25,7 @@
 # In pipe mode: BASH_SOURCE[0] is empty, $0 is "bash"
 # In direct mode: BASH_SOURCE[0] is the script path
 if [[ -z "${BASH_SOURCE[0]:-}" ]]; then
-    # Remote execution mode - clone repo and execute locally
+    # Remote execution mode
     readonly _REMOTE_REPO_URL="https://github.com/nbfhscl/dotfile.git"
     readonly _REMOTE_DOT_DIR="${DOT_DIR:-$HOME/.dotfile}"
     readonly _REMOTE_TEMP_DIR="$(mktemp -d)"
@@ -38,7 +38,6 @@ if [[ -z "${BASH_SOURCE[0]:-}" ]]; then
 
     _remote_log "🚀 Remote install mode"
     _remote_log "Repository: $_REMOTE_REPO_URL"
-    _remote_log "Target directory: $_REMOTE_DOT_DIR"
 
     # Check for required tools
     if ! command -v git &> /dev/null; then
@@ -47,53 +46,20 @@ if [[ -z "${BASH_SOURCE[0]:-}" ]]; then
         exit 1
     fi
 
-    # Handle existing dotfile directory
-    if [[ -d "$_REMOTE_DOT_DIR" ]]; then
-        # Check if it's a valid bare repository
-        if [[ ! -d "$_REMOTE_DOT_DIR/objects" ]] || [[ ! -d "$_REMOTE_DOT_DIR/refs" ]]; then
-            _remote_log "Existing directory is not a valid bare repository, re-cloning..."
-            rm -rf "$_REMOTE_DOT_DIR"
-            _remote_log "Cloning bare repository..."
-            if ! git clone --bare "$_REMOTE_REPO_URL" "$_REMOTE_DOT_DIR" 2>/dev/null; then
-                _remote_err "Failed to clone repository"
-                rm -rf "$_REMOTE_TEMP_DIR"
-                exit 1
-            fi
-            _remote_log "Bare repository cloned successfully"
-        elif [[ "$_REMOTE_ACTION" == "install" ]]; then
-            _remote_log "Existing dotfile found. Updating..."
-            git --git-dir="$_REMOTE_DOT_DIR" fetch origin master 2>/dev/null
-            if git --git-dir="$_REMOTE_DOT_DIR" update-ref --no-deref refs/heads/master refs/remotes/origin/master 2>/dev/null; then
-                _remote_log "Repository updated successfully"
-            else
-                _remote_log "Update failed, using existing version"
-            fi
-        fi
-    else
-        # Clone bare repository
-        _remote_log "Cloning bare repository..."
-        if ! git clone --bare "$_REMOTE_REPO_URL" "$_REMOTE_DOT_DIR" 2>/dev/null; then
-            _remote_err "Failed to clone repository"
-            rm -rf "$_REMOTE_TEMP_DIR"
-            exit 1
-        fi
-        _remote_log "Bare repository cloned successfully"
-    fi
-
-    # Final check: ensure it's a valid bare repository
-    if ! git --git-dir="$_REMOTE_DOT_DIR" rev-parse --is-bare-repository >/dev/null 2>&1; then
-        _remote_err "Failed to create valid bare repository at $_REMOTE_DOT_DIR"
+    # Clone repository to temp directory
+    _remote_log "Cloning repository to temporary directory..."
+    if ! git clone --depth 1 "$_REMOTE_REPO_URL" "$_REMOTE_TEMP_DIR/dotfile" 2>/dev/null; then
+        _remote_err "Failed to clone repository"
         rm -rf "$_REMOTE_TEMP_DIR"
         exit 1
     fi
 
-    # Execute the local install script with requested action
-    _remote_log "Executing: bash $_REMOTE_DOT_DIR/install.sh $_REMOTE_ACTION"
-    cd "$_REMOTE_DOT_DIR"
+    # Execute the install script from temp directory
+    _remote_log "Executing installation from: $_REMOTE_TEMP_DIR/dotfile/install.sh"
+    cd "$_REMOTE_TEMP_DIR/dotfile"
 
-    # Clean up temp directory and exec
-    rm -rf "$_REMOTE_TEMP_DIR"
-    exec bash "$_REMOTE_DOT_DIR/install.sh" "$_REMOTE_ACTION"
+    # Execute with original arguments
+    exec bash "$_REMOTE_TEMP_DIR/dotfile/install.sh" "$_REMOTE_ACTION"
 fi
 
 # Enable strict mode after remote execution check
