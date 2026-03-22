@@ -49,40 +49,40 @@ if [[ -z "${BASH_SOURCE[0]:-}" ]]; then
 
     # Handle existing dotfile directory
     if [[ -d "$_REMOTE_DOT_DIR" ]]; then
-        # Check if install.sh exists
-        if [[ ! -f "$_REMOTE_DOT_DIR/install.sh" ]]; then
-            _remote_log "Existing directory is incomplete, re-cloning..."
+        # Check if it's a valid bare repository
+        if [[ ! -d "$_REMOTE_DOT_DIR/objects" ]] || [[ ! -d "$_REMOTE_DOT_DIR/refs" ]]; then
+            _remote_log "Existing directory is not a valid bare repository, re-cloning..."
             rm -rf "$_REMOTE_DOT_DIR"
-            _remote_log "Cloning repository..."
-            if ! git clone --depth 1 --single-branch "$_REMOTE_REPO_URL" "$_REMOTE_DOT_DIR" 2>/dev/null; then
+            _remote_log "Cloning bare repository..."
+            if ! git clone --bare "$_REMOTE_REPO_URL" "$_REMOTE_DOT_DIR" 2>/dev/null; then
                 _remote_err "Failed to clone repository"
                 rm -rf "$_REMOTE_TEMP_DIR"
                 exit 1
             fi
-            _remote_log "Repository cloned successfully"
+            _remote_log "Bare repository cloned successfully"
         elif [[ "$_REMOTE_ACTION" == "install" ]]; then
             _remote_log "Existing dotfile found. Updating..."
-            cd "$_REMOTE_DOT_DIR"
-            if git fetch origin && git reset --hard origin/master 2>/dev/null; then
+            git --git-dir="$_REMOTE_DOT_DIR" fetch origin master 2>/dev/null
+            if git --git-dir="$_REMOTE_DOT_DIR" update-ref --no-deref refs/heads/master refs/remotes/origin/master 2>/dev/null; then
                 _remote_log "Repository updated successfully"
             else
                 _remote_log "Update failed, using existing version"
             fi
         fi
     else
-        # Clone repository (shallow clone for speed)
-        _remote_log "Cloning repository..."
-        if ! git clone --depth 1 --single-branch "$_REMOTE_REPO_URL" "$_REMOTE_DOT_DIR" 2>/dev/null; then
+        # Clone bare repository
+        _remote_log "Cloning bare repository..."
+        if ! git clone --bare "$_REMOTE_REPO_URL" "$_REMOTE_DOT_DIR" 2>/dev/null; then
             _remote_err "Failed to clone repository"
             rm -rf "$_REMOTE_TEMP_DIR"
             exit 1
         fi
-        _remote_log "Repository cloned successfully"
+        _remote_log "Bare repository cloned successfully"
     fi
 
-    # Final check: ensure install.sh exists
-    if [[ ! -f "$_REMOTE_DOT_DIR/install.sh" ]]; then
-        _remote_err "install.sh not found in $_REMOTE_DOT_DIR after clone/update"
+    # Final check: ensure it's a valid bare repository
+    if ! git --git-dir="$_REMOTE_DOT_DIR" rev-parse --is-bare-repository >/dev/null 2>&1; then
+        _remote_err "Failed to create valid bare repository at $_REMOTE_DOT_DIR"
         rm -rf "$_REMOTE_TEMP_DIR"
         exit 1
     fi
