@@ -9,30 +9,6 @@
 !.vim/**/*              # .vim 下所有文件
 !AGENTS.md
 !CLAUDE.md
-!docs
-!docs/                  # 文档目录
-!docs/**/               # 文档子目录
-!docs/**/*              # 文档目录
-!docs/issue
-!docs/issue/
-!docs/issue/*           # issue 文档
-!scripts
-!scripts/               # 脚本目录
-!scripts/*              # 脚本目录一级文件
-!scripts/lib
-!scripts/lib/           # 共享脚本目录
-!scripts/lib/*          # 共享脚本文件
-!scripts/**/*           # 脚本目录下所有文件
-!tests
-!tests/                 # 测试目录
-!tests/*                # 测试文件
-!tests/**/*             # 测试目录下所有文件
-!tests/install_contract.bats
-!scripts/lib/actions.sh
-!scripts/lib/xdg.sh
-!install.sh
-!install.ps1
-!uninstall.sh
 
 # ============= 排除敏感/临时文件 =============
 # Vim/Neovim 临时文件
