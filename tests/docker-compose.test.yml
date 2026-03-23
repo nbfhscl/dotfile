@@ -1,0 +1,56 @@
+# Docker Compose for Dotfile End-to-End Testing
+# Usage: docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+
+services:
+  arch-test:
+    image: archlinux:latest
+    container_name: dotfile-test-arch
+    hostname: arch-test
+    network_mode: host
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+    environment:
+      - TERM=xterm-256color
+      - DOT_DIR=/root/.dotfile
+      - DRY_RUN=${DRY_RUN:-}
+    volumes:
+      # Mount the test script
+      - ./tests/docker/run-e2e-test.sh:/usr/local/bin/run-e2e-test.sh:ro
+      # Preserve test results
+      - ./tests/results:/test-results
+    working_dir: /root
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+
+        # Initialize Arch Linux keyring
+        echo "==> Initializing Arch Linux keyring..."
+        rm -rf /etc/pacman.d/gnupg
+        pacman-key --init
+        pacman-key --populate archlinux
+
+        # Update package database
+        echo "==> Updating package database..."
+        pacman -Sy
+
+        # Install required packages
+        echo "==> Installing required packages..."
+        pacman -S --noconfirm git curl bash sudo
+
+        echo "==> Environment ready"
+        echo "==> Bash: $$(bash --version | head -1)"
+        echo "==> Git: $$(git --version | head -1)"
+        echo "==> Curl: $$(curl --version | head -1)"
+        echo ""
+
+        # Run the test script
+        if [ -f /usr/local/bin/run-e2e-test.sh ]; then
+          echo "==> Starting dotfile test..."
+          exec /usr/local/bin/run-e2e-test.sh
+        else
+          echo "Test script not found, starting shell..."
+          exec /bin/bash
+        fi

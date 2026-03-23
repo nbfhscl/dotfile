@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  arch-test-all-commands:
+    image: archlinux:latest
+    container_name: dotfile-test-all-commands
+    network_mode: host
+    privileged: true
+    volumes:
+      - ./tests/docker/test-all-commands.sh:/usr/local/bin/test-all-commands.sh:ro
+      - ./test-results:/test-results
+    environment:
+      - DEBUG=1
+    command: >
+      bash -c '
+        set -e &&
+        echo "==> Initializing Arch Linux keyring..." &&
+        pacman-key --init &&
+        pacman-key --populate archlinux &&
+        echo "==> Updating package database..." &&
+        pacman -Sy --noconfirm &&
+        echo "==> Installing required packages..." &&
+        pacman -S --noconfirm git curl bash sudo &&
+        echo "==> Environment ready" &&
+        echo "==> Bash: $$(bash --version | head -1)" &&
+        echo "==> Git: $$(git --version | head -1)" &&
+        echo "==> Curl: $$(curl --version | head -1)" &&
+        echo "" &&
+        echo "==> Starting comprehensive command test..." &&
+        bash /usr/local/bin/test-all-commands.sh
+      '
