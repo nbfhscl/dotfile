@@ -447,6 +447,254 @@ function Initialize-XDGPaths {
     }
 }
 
+<#
+.SYNOPSIS
+    Test if legacy configuration exists.
+
+.DESCRIPTION
+    Checks if a legacy configuration file or directory exists at the specified path.
+
+.PARAMETER LegacyPath
+    The legacy path to check.
+
+.EXAMPLE
+    $hasLegacy = Test-LegacyConfig "$env:USERPROFILE\.vimrc"
+#>
+function Test-LegacyConfig {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LegacyPath
+    )
+
+    return Test-Path $LegacyPath
+}
+
+<#
+.SYNOPSIS
+    Migrate legacy configuration to XDG-compliant path.
+
+.DESCRIPTION
+    Moves legacy configuration to XDG path and creates a symbolic link for backward compatibility.
+
+.PARAMETER LegacyPath
+    The legacy configuration path.
+
+.PARAMETER XDGPath
+    The XDG-compliant target path.
+
+.PARAMETER BackupDirectory
+    Directory to store backups (optional).
+
+.EXAMPLE
+    Move-LegacyConfigToXDG -LegacyPath "$env:USERPROFILE\.vimrc" -XDGPath (Get-XDGConfigPath "vim\vimrc")
+#>
+function Move-LegacyConfigToXDG {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LegacyPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$XDGPath,
+
+        [string]$BackupDirectory
+    )
+
+    # Source must exist
+    if (-not (Test-Path $LegacyPath)) {
+        Write-Info "No legacy config at $LegacyPath, skipping migration"
+        return
+    }
+
+    # Create target directory
+    $targetDir = Split-Path -Parent $XDGPath
+    if (-not (Test-Path $targetDir)) {
+        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+    }
+
+    # If target already exists, backup it
+    if (Test-Path $XDGPath) {
+        if ($BackupDirectory) {
+            if (-not (Test-Path $BackupDirectory)) {
+                New-Item -ItemType Directory -Path $BackupDirectory -Force | Out-Null
+            }
+            $backupPath = Join-Path $BackupDirectory (Split-Path -Leaf $XDGPath)
+            Move-Item -Path $XDGPath -Destination $backupPath -Force
+            Write-Info "Backed up existing XDG config to $backupPath"
+        } else {
+            Remove-Item -Path $XDGPath -Recurse -Force
+        }
+    }
+
+    # Move source to target
+    Move-Item -Path $LegacyPath -Destination $XDGPath -Force
+    Write-Info "Migrated $LegacyPath to $XDGPath"
+
+    # Create symbolic link for backward compatibility (requires admin)
+    try {
+        New-Item -ItemType SymbolicLink -Path $LegacyPath -Target $XDGPath -Force | Out-Null
+        Write-Info "Created symlink: $LegacyPath -> $XDGPath"
+    } catch {
+        Write-WarningCustom "Could not create symlink (requires admin): $_"
+        Write-Info "You can manually create a symlink if needed:"
+        Write-Info "  mklink /D `"$LegacyPath`" `"$XDGPath`""
+    }
+}
+
+<#
+.SYNOPSIS
+    Create XDG-compliant symlinks for backward compatibility.
+
+.DESCRIPTION
+    Creates symbolic links from legacy paths to XDG paths if the legacy paths don't exist.
+
+.PARAMETER XDGPath
+    The XDG-compliant path.
+
+.PARAMETER LegacyPath
+    The legacy path to create symlink at.
+
+.EXAMPLE
+    New-XDGCompatSymlink -XDGPath (Get-XDGConfigPath "vim") -LegacyPath "$env:USERPROFILE\.vim"
+#>
+function New-XDGCompatSymlink {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$XDGPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$LegacyPath
+    )
+
+    # If legacy path exists and is not a symlink, back it up
+    if ((Test-Path $LegacyPath) -and (Get-Item $LegacyPath).LinkType -ne "SymbolicLink") {
+        $backupDir = "$env:USERPROFILE\.dotfile_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+        if (-not (Test-Path $backupDir)) {
+            New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+        }
+        $backupPath = Join-Path $backupDir (Split-Path -Leaf $LegacyPath)
+        Move-Item -Path $LegacyPath -Destination $backupPath -Force
+        Write-Info "Backed up existing $LegacyPath to $backupPath"
+    }
+
+    # Create symlink if it doesn't exist
+    if (-not (Test-Path $LegacyPath)) {
+        try {
+            New-Item -ItemType SymbolicLink -Path $LegacyPath -Target $XDGPath -Force | Out-Null
+            Write-Info "Created symlink: $LegacyPath -> $XDGPath"
+        } catch {
+            Write-WarningCustom "Could not create symlink: $_"
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Verify XDG path compliance.
+
+.DESCRIPTION
+    Checks that all XDG environment variables are set and directories exist.
+
+.PARAMETER XDGPaths
+    Hashtable of XDG paths (optional, defaults to current environment).
+
+.EXAMPLE
+    $isValid = Test-XDGCompliance
+#>
+function Test-XDGCompliance {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [hashtable]$XDGPaths
+    )
+
+    # If not provided, get from environment
+    if (-not $XDGPaths) {
+        $XDGPaths = @{
+            ConfigHome = $env:XDG_CONFIG_HOME
+            DataHome   = $env:XDG_DATA_HOME
+            StateHome  = $env:XDG_STATE_HOME
+            CacheHome  = $env:XDG_CACHE_HOME
+        }
+    }
+
+    $errors = 0
+
+    foreach ($path in $XDGPaths.GetEnumerator()) {
+        if (-not $path.Value) {
+            Write-ErrorCustom "XDG_$($path.Key.Replace('Home', '_HOME')) is not set"
+            $errors++
+        } elseif (-not (Test-Path $path.Value)) {
+            Write-ErrorCustom "XDG_$($path.Key.Replace('Home', '_HOME')) ($($path.Value)) does not exist"
+            $errors++
+        }
+    }
+
+    return $errors -eq 0
+}
+
+<#
+.SYNOPSIS
+    Ensure XDG-compliant application structure.
+
+.DESCRIPTION
+    Creates standard XDG directory structure for an application.
+
+.PARAMETER AppName
+    Name of the application.
+
+.PARAMETER Subdirectories
+    Array of subdirectories to create in format "type:path" (e.g., "config:plugins", "data:cache").
+
+.EXAMPLE
+    Add-XDGAppStructure -AppName "myapp" -Subdirectories @("config:plugins", "data:cache", "cache:temp")
+#>
+function Add-XDGAppStructure {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AppName,
+
+        [string[]]$Subdirectories
+    )
+
+    $configDir = Join-Path (Get-XDGConfigPath) $AppName
+    $dataDir = Join-Path (Get-XDGDataPath) $AppName
+    $stateDir = if ($env:XDG_STATE_HOME) { Join-Path $env:XDG_STATE_HOME $AppName } else { Join-Path $env:USERPROFILE ".local\state\$AppName" }
+    $cacheDir = if ($env:XDG_CACHE_HOME) { Join-Path $env:XDG_CACHE_HOME $AppName } else { Join-Path $env:USERPROFILE ".cache\$AppName" }
+
+    # Create base directories
+    foreach ($dir in @($configDir, $dataDir, $stateDir, $cacheDir)) {
+        if (-not (Test-Path $dir)) {
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        }
+    }
+
+    # Create subdirectories if specified
+    if ($Subdirectories) {
+        foreach ($subdir in $Subdirectories) {
+            if ($subdir -match '^(config|data|state|cache):(.+)$') {
+                $type = $Matches[1]
+                $path = $Matches[2]
+
+                $targetDir = switch ($type) {
+                    'config' { Join-Path $configDir $path }
+                    'data'   { Join-Path $dataDir $path }
+                    'state'  { Join-Path $stateDir $path }
+                    'cache'  { Join-Path $cacheDir $path }
+                }
+
+                if (-not (Test-Path $targetDir)) {
+                    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+                }
+            }
+        }
+    }
+}
+
 # ============================================
 # Backup Functions
 # ============================================
@@ -962,6 +1210,11 @@ Export-ModuleMember -Function @(
     'Get-XDGConfigPath',
     'Get-XDGDataPath',
     'Initialize-XDGPaths',
+    'Test-LegacyConfig',
+    'Move-LegacyConfigToXDG',
+    'New-XDGCompatSymlink',
+    'Test-XDGCompliance',
+    'Add-XDGAppStructure',
 
     # Backup Functions
     'Backup-File',

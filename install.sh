@@ -250,6 +250,84 @@ ensure_xdg_paths() {
   init_xdg_paths
 }
 
+# ============================================================================
+# XDG MIGRATION FUNCTIONS
+# ============================================================================
+
+# Migrate legacy configurations to XDG-compliant paths
+migrate_to_xdg() {
+  local auto_migrate="${XDG_MIGRATE:-${AUTO_MIGRATE:-0}}"
+
+  if [[ "$auto_migrate" != "1" ]]; then
+    log "XDG migration skipped (set XDG_MIGRATE=1 to enable)"
+    return 0
+  fi
+
+  info "Migrating legacy configurations to XDG paths..."
+
+  # Migrate Vim configuration
+  if [[ -f "$HOME/.vimrc" && ! -L "$HOME/.vimrc" ]]; then
+    local vim_xdg_dir="$XDG_CONFIG_HOME/vim"
+    mkdir -p "$vim_xdg_dir"
+    mv "$HOME/.vimrc" "$vim_xdg_dir/vimrc"
+    ln -s "$vim_xdg_dir/vimrc" "$HOME/.vimrc"
+    log "Migrated ~/.vimrc to $vim_xdg_dir/vimrc"
+  fi
+
+  # Migrate .vim directory
+  if [[ -d "$HOME/.vim" && ! -L "$HOME/.vim" ]]; then
+    mv "$HOME/.vim" "$XDG_CONFIG_HOME/vim"
+    ln -s "$XDG_CONFIG_HOME/vim" "$HOME/.vim"
+    log "Migrated ~/.vim to $XDG_CONFIG_HOME/vim"
+  fi
+
+  # Migrate Zsh configuration
+  if [[ -f "$HOME/.zshrc" && ! -L "$HOME/.zshrc" ]]; then
+    local zsh_xdg_dir="$XDG_CONFIG_HOME/zsh"
+    mkdir -p "$zsh_xdg_dir"
+    mv "$HOME/.zshrc" "$zsh_xdg_dir/.zshrc"
+    ln -s "$zsh_xdg_dir/.zshrc" "$HOME/.zshrc"
+    log "Migrated ~/.zshrc to $zsh_xdg_dir/.zshrc"
+  fi
+
+  # Migrate Tmux configuration
+  if [[ -f "$HOME/.tmux.conf" && ! -L "$HOME/.tmux.conf" ]]; then
+    local tmux_xdg_dir="$XDG_CONFIG_HOME/tmux"
+    mkdir -p "$tmux_xdg_dir"
+    mv "$HOME/.tmux.conf" "$tmux_xdg_dir/tmux.conf"
+    ln -s "$tmux_xdg_dir/tmux.conf" "$HOME/.tmux.conf"
+    log "Migrated ~/.tmux.conf to $tmux_xdg_dir/tmux.conf"
+  fi
+
+  log "XDG migration completed"
+}
+
+# Create XDG-compliant symlinks for backward compatibility
+create_xdg_symlinks() {
+  info "Creating XDG-compliant symlinks..."
+
+  # Vim
+  if [[ -d "$XDG_CONFIG_HOME/vim" && ! -e "$HOME/.vim" ]]; then
+    ln -s "$XDG_CONFIG_HOME/vim" "$HOME/.vim"
+    log "Created symlink: ~/.vim -> $XDG_CONFIG_HOME/vim"
+  elif [[ -f "$XDG_CONFIG_HOME/vim/vimrc" && ! -e "$HOME/.vimrc" ]]; then
+    ln -s "$XDG_CONFIG_HOME/vim/vimrc" "$HOME/.vimrc"
+    log "Created symlink: ~/.vimrc -> $XDG_CONFIG_HOME/vim/vimrc"
+  fi
+
+  # Zsh
+  if [[ -f "$XDG_CONFIG_HOME/zsh/.zshrc" && ! -e "$HOME/.zshrc" ]]; then
+    ln -s "$XDG_CONFIG_HOME/zsh/.zshrc" "$HOME/.zshrc"
+    log "Created symlink: ~/.zshrc -> $XDG_CONFIG_HOME/zsh/.zshrc"
+  fi
+
+  # Tmux
+  if [[ -f "$XDG_CONFIG_HOME/tmux/tmux.conf" && ! -e "$HOME/.tmux.conf" ]]; then
+    ln -s "$XDG_CONFIG_HOME/tmux/tmux.conf" "$HOME/.tmux.conf"
+    log "Created symlink: ~/.tmux.conf -> $XDG_CONFIG_HOME/tmux/tmux.conf"
+  fi
+}
+
 install_shell_alias() {
   local shell_rc
   local shell_name
@@ -709,9 +787,22 @@ run_post_install_tests() {
   # Test 6: Config files deployment
   log "Testing config files..."
   test_command "Zsh config deployed" "[ -f '$XDG_CONFIG_HOME/zsh/.zshrc' ] || [ -f '$HOME/.zshrc' ]"
-  test_command "Vim config deployed" "[ -f '$HOME/.vimrc' ] || [ -d '$XDG_CONFIG_HOME/vim' ]"
+  test_command "Vim config deployed" "[ -f '$XDG_CONFIG_HOME/vim/vimrc' ] || [ -f '$HOME/.vimrc' ] || [ -d '$XDG_CONFIG_HOME/vim' ]"
   test_command "Neovim config deployed" "[ -d '$XDG_CONFIG_HOME/nvim' ]"
   test_command "Tmux config deployed" "[ -f '$XDG_CONFIG_HOME/tmux/tmux.conf' ] || [ -f '$HOME/.tmux.conf' ]"
+  echo ""
+
+  # Test 6.5: XDG compliance verification
+  log "Testing XDG compliance..."
+  test_command "XDG_CONFIG_HOME is set" "[ -n '$XDG_CONFIG_HOME' ]"
+  test_command "XDG_DATA_HOME is set" "[ -n '$XDG_DATA_HOME' ]"
+  test_command "XDG_STATE_HOME is set" "[ -n '$XDG_STATE_HOME' ]"
+  test_command "XDG_CACHE_HOME is set" "[ -n '$XDG_CACHE_HOME' ]"
+
+  # Check for XDG-compliant config locations
+  test_command "Vim uses XDG (preferred)" "[ -d '$XDG_CONFIG_HOME/vim' ] || [ -L '$HOME/.vim' ]"
+  test_command "Zsh uses XDG (preferred)" "[ -d '$XDG_CONFIG_HOME/zsh' ] || [ -L '$HOME/.zshrc' ]"
+  test_command "Tmux uses XDG (preferred)" "[ -d '$XDG_CONFIG_HOME/tmux' ] || [ -L '$HOME/.tmux.conf' ]"
   echo ""
 
   # Test 7: Neovim version check
@@ -883,6 +974,7 @@ run_update() {
   backup_conflicting_files
   deploy_dotfiles
   install_shell_alias
+  create_xdg_symlinks
   log "Dotfile update completed"
 }
 
@@ -1003,6 +1095,10 @@ run_installation() {
   backup_conflicting_files
   deploy_dotfiles
   install_shell_alias
+
+  # Create XDG-compliant symlinks
+  echo ""
+  create_xdg_symlinks
 
   echo ""
   echo "=========================================="
