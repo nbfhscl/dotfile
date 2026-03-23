@@ -13,14 +13,13 @@ services:
       - DEBUG=1
     command: >
       bash -c '
-        set -e &&
         echo "==> Initializing Arch Linux keyring..." &&
         pacman-key --init &&
         pacman-key --populate archlinux &&
         echo "==> Updating package database..." &&
-        pacman -Sy --noconfirm &&
+        pacman -Sy --noconfirm --needed &&
         echo "==> Installing required packages..." &&
-        pacman -S --noconfirm git curl bash sudo &&
+        yes | pacman -S git curl bash sudo &&
         echo "==> Environment ready" &&
         echo "==> Bash: $$(bash --version | head -1)" &&
         echo "==> Git: $$(git --version | head -1)" &&

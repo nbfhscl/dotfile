@@ -947,24 +947,62 @@ run_update() {
   # Fetch from origin
   dot fetch origin || error "Failed to fetch latest dotfile changes"
 
-  # Get the default branch from origin
+  # Determine the target branch to update to
   local target_ref
+  local target_branch
+
+  # Method 1: Try to get origin/HEAD symbolic ref (works in non-bare repos)
   target_ref="$(dot symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null || true)"
 
   if [ -n "$target_ref" ]; then
-    # Remove refs/remotes/ prefix
+    # Remove refs/remotes/ prefix (e.g., refs/remotes/origin/master -> origin/master)
     target_ref="${target_ref#refs/remotes/}"
   else
-    # Fallback: try common branch names
-    for branch in "origin/main" "origin/master"; do
-      if dot show-ref --quiet --verify "refs/remotes/$branch" >/dev/null 2>&1; then
-        target_ref="$branch"
-        break
-      fi
-    done
+    # Method 2: Try to detect default branch from remote
+    # This works in bare repos after fetch
+    local default_branch
+    default_branch="$(dot ls-remote --symref origin HEAD 2>/dev/null | awk '/^ref:/ {print $2}')"
 
-    if [ -z "$target_ref" ]; then
+    if [ -n "$default_branch" ]; then
+      # Remove refs/heads/ prefix (e.g., refs/heads/master -> master)
+      target_branch="${default_branch#refs/heads/}"
+      # In bare repos, we need to fetch the branch explicitly and use FETCH_HEAD
+      # or get the SHA directly
+      target_ref="$target_branch"
+    else
+      # Method 3: Fallback to common branch names
+      # Try to detect from FETCH_HEAD or use common defaults
+      for branch in "master" "main"; do
+        # Check if this branch exists on remote
+        if dot ls-remote --exit-code --heads "origin" "$branch" >/dev/null 2>&1; then
+          target_ref="$branch"
+          target_branch="$branch"
+          break
+        fi
+      done
+    fi
+  fi
+
+  if [ -z "$target_ref" ]; then
+    # Method 4: Last resort - try to use FETCH_HEAD directly
+    # This will reset to whatever was just fetched
+    if dot rev-parse FETCH_HEAD >/dev/null 2>&1; then
+      log "Unable to determine specific branch, using FETCH_HEAD"
+      target_ref="FETCH_HEAD"
+    else
       error "Unable to determine remote branch. Please check your repository configuration."
+    fi
+  elif [ "$target_ref" != "FETCH_HEAD" ]; then
+    # For bare repos, fetch the specific branch and use FETCH_HEAD
+    if [ -z "$target_branch" ]; then
+      target_branch="$target_ref"
+    fi
+
+    log "Fetching branch $target_branch from origin..."
+    if dot fetch origin "refs/heads/$target_branch:FETCH_HEAD" >/dev/null 2>&1; then
+      target_ref="FETCH_HEAD"
+    else
+      error "Failed to fetch branch $target_branch from origin"
     fi
   fi
 
