@@ -847,14 +847,38 @@ run_update() {
   fi
 
   log "Updating dotfile repository..."
-  dot fetch origin >/dev/null 2>&1 || error "Failed to fetch latest dotfile changes"
 
+  # Check if remote origin exists
+  if ! dot remote | grep -q "origin"; then
+    error "No remote 'origin' found in dotfile repository"
+  fi
+
+  # Fetch from origin
+  dot fetch origin || error "Failed to fetch latest dotfile changes"
+
+  # Get the default branch from origin
   local target_ref
   target_ref="$(dot symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null || true)"
-  target_ref="${target_ref#refs/remotes/}"
-  target_ref="${target_ref:-origin/master}"
 
-  dot reset --hard "$target_ref" >/dev/null 2>&1 || error "Failed to reset dotfile repository to $target_ref"
+  if [ -n "$target_ref" ]; then
+    # Remove refs/remotes/ prefix
+    target_ref="${target_ref#refs/remotes/}"
+  else
+    # Fallback: try common branch names
+    for branch in "origin/main" "origin/master"; do
+      if dot show-ref --quiet --verify "refs/remotes/$branch" >/dev/null 2>&1; then
+        target_ref="$branch"
+        break
+      fi
+    done
+
+    if [ -z "$target_ref" ]; then
+      error "Unable to determine remote branch. Please check your repository configuration."
+    fi
+  fi
+
+  log "Resetting to $target_ref..."
+  dot reset --hard "$target_ref" || error "Failed to reset dotfile repository to $target_ref"
 
   backup_conflicting_files
   deploy_dotfiles
