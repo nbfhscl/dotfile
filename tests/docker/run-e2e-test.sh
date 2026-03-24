@@ -445,6 +445,55 @@ EOF
     fi
 
     echo ""
+    # =========================================================================
+    # TEST SUITE 10: TOOLS AVAILABILITY
+    # =========================================================================
+    log_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log_info "TEST SUITE 10: TOOLS AVAILABILITY"
+    log_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    # Test 10.1: Essential tools
+    echo "Test 10.1: Essential tools"
+    command -v git >/dev/null 2>&1 && log_pass "Git is installed" || log_fail "Git is not installed"
+    command -v nvim >/dev/null 2>&1 && log_pass "Neovim is installed" || log_skip "Neovim is not installed (SKIP_INSTALL=1)"
+    command -v vim >/dev/null 2>&1 && log_pass "Vim is installed" || log_skip "Vim is not installed"
+
+    # Test 10.2: Modern CLI tools
+    echo ""
+    echo "Test 10.2: Modern CLI tools"
+    command -v rg >/dev/null 2>&1 && log_pass "ripgrep is installed" || log_skip "ripgrep is not installed (SKIP_INSTALL=1)"
+    command -v fzf >/dev/null 2>&1 && log_pass "fzf is installed" || log_skip "fzf is not installed (SKIP_INSTALL=1)"
+    command -v bat >/dev/null 2>&1 && log_pass "bat is installed" || log_skip "bat is not installed (SKIP_INSTALL=1)"
+    command -v fd >/dev/null 2>&1 && log_pass "fd is installed" || log_skip "fd is not installed (SKIP_INSTALL=1)"
+
+    # Test 10.3: Enhanced ls tools
+    echo ""
+    echo "Test 10.3: Enhanced ls tools"
+    command -v eza >/dev/null 2>&1 && log_pass "eza is installed" || \
+    command -v exa >/dev/null 2>&1 && log_pass "exa is installed" || \
+    log_skip "eza/exa not installed (SKIP_INSTALL=1)"
+
+    # Test 10.4: Directory navigation
+    echo ""
+    echo "Test 10.4: Directory navigation tools"
+    command -v zoxide >/dev/null 2>&1 && log_pass "zoxide is installed" || \
+    command -v z >/dev/null 2>&1 && log_pass "zoxide (z) is installed" || \
+    log_skip "zoxide not installed (SKIP_INSTALL=1)"
+
+    # Test 10.5: Terminal multiplexer
+    echo ""
+    echo "Test 10.5: Terminal multiplexer"
+    command -v tmux >/dev/null 2>&1 && log_pass "tmux is installed" || log_skip "tmux is not installed (SKIP_INSTALL=1)"
+
+    # Test 10.6: Tool configurations
+    echo ""
+    echo "Test 10.6: Tool configurations"
+    [ -f "$HOME/.config/nvim/init.vim" ] && log_pass "Neovim config exists" || log_skip "Neovim config not found"
+    [ -f "$XDG_CONFIG_HOME/tmux/tmux.conf" ] || [ -f "$HOME/.tmux.conf" ] && log_pass "Tmux config exists" || log_skip "Tmux config not found"
+    [ -f "$HOME/.config/bash/fzf.bash" ] && log_pass "fzf bash integration exists" || log_skip "fzf bash integration not found"
+
+    echo ""
     echo "╔══════════════════════════════════════════════════════════════════════════════╗"
     echo "║                           TEST SUMMARY                                        ║"
     echo "╚══════════════════════════════════════════════════════════════════════════════╝"
