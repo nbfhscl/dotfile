@@ -290,6 +290,15 @@ migrate_to_xdg() {
     log "Migrated ~/.zshrc to $zsh_xdg_dir/.zshrc"
   fi
 
+  # Migrate Bash configuration
+  if [[ -f "$HOME/.bashrc" && ! -L "$HOME/.bashrc" ]]; then
+    local bash_xdg_dir="$XDG_CONFIG_HOME/bash"
+    mkdir -p "$bash_xdg_dir"
+    mv "$HOME/.bashrc" "$bash_xdg_dir/.bashrc"
+    ln -s "$bash_xdg_dir/.bashrc" "$HOME/.bashrc"
+    log "Migrated ~/.bashrc to $bash_xdg_dir/.bashrc"
+  fi
+
   # Migrate Tmux configuration
   if [[ -f "$HOME/.tmux.conf" && ! -L "$HOME/.tmux.conf" ]]; then
     local tmux_xdg_dir="$XDG_CONFIG_HOME/tmux"
@@ -319,6 +328,12 @@ create_xdg_symlinks() {
   if [[ -f "$XDG_CONFIG_HOME/zsh/.zshrc" && ! -e "$HOME/.zshrc" ]]; then
     ln -s "$XDG_CONFIG_HOME/zsh/.zshrc" "$HOME/.zshrc"
     log "Created symlink: ~/.zshrc -> $XDG_CONFIG_HOME/zsh/.zshrc"
+  fi
+
+  # Bash
+  if [[ -f "$XDG_CONFIG_HOME/bash/.bashrc" && ! -e "$HOME/.bashrc" ]]; then
+    ln -s "$XDG_CONFIG_HOME/bash/.bashrc" "$HOME/.bashrc"
+    log "Created symlink: ~/.bashrc -> $XDG_CONFIG_HOME/bash/.bashrc"
   fi
 
   # Tmux
