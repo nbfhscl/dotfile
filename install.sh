@@ -78,6 +78,15 @@ readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$ROOT_DIR/scripts/lib/actions.sh"
 source "$ROOT_DIR/scripts/lib/xdg.sh"
 
+# ============================================================================
+# DOT COMMAND WRAPPER
+# ============================================================================
+# Define 'dot' as a function instead of alias (aliases don't work in scripts)
+# This function wraps git commands to work with the bare dotfile repository
+dot() {
+    git --git-dir="$DOT_DIR" --work-tree="$HOME" "$@"
+}
+
 # Runtime configuration
 BACKUP_DIR=""
 DRY_RUN="${DRY_RUN:-}"
@@ -801,6 +810,46 @@ run_post_install_tests() {
   echo "=========================================="
   echo ""
 
+  # In SKIP_INSTALL mode, only test config deployment, not tools
+  if [ -n "$SKIP_INSTALL" ]; then
+    log "SKIP_INSTALL=1: Testing configuration deployment only..."
+
+    local total_tests=0
+    local passed_tests=0
+    local failed_tests=0
+
+    # Test helper
+    test_command() {
+      local name="$1"
+      local command="$2"
+      ((total_tests++))
+
+      if eval "$command" >/dev/null 2>&1; then
+        log "  ✓ $name"
+        ((passed_tests++))
+        return 0
+      else
+        warn "  ✗ $name"
+        ((failed_tests++))
+        return 1
+      fi
+    }
+
+    # Test only config deployment
+    test_command "Dotfile repository exists" "[ -d '$DOT_DIR' ]"
+    test_command "Dotfile is bare repository" "git --git-dir='$DOT_DIR' rev-parse --is-bare-repository"
+    test_command "Zsh config deployed" "[ -f '$XDG_CONFIG_HOME/zsh/.zshrc' ] || [ -f '$HOME/.zshrc' ]"
+    test_command "Bash config deployed" "[ -f '$XDG_CONFIG_HOME/bash/.bashrc' ] || [ -f '$HOME/.bashrc' ]"
+    test_command "Neovim config directory exists" "[ -d '$XDG_CONFIG_HOME/nvim' ]"
+
+    echo ""
+    log "  Total: $total_tests, Passed: $passed_tests, Failed: $failed_tests"
+    echo "=========================================="
+    echo ""
+
+    return $failed_tests
+  fi
+
   local total_tests=0
   local passed_tests=0
   local failed_tests=0
@@ -1253,6 +1302,9 @@ run_installation() {
   if [ -n "$BACKUP_DIR" ]; then
     log "Backup saved to: $BACKUP_DIR"
   fi
+
+  # Return the test result (0 = all tests passed, non-zero = some tests failed)
+  return $test_result
 }
 
 # ============================================================================

@@ -264,6 +264,215 @@ fi
 
 echo ""
 
+# Test dotfile management (dot command)
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log_info "Dot Command Tests"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Check if dotfile bare repository exists
+if [ -d "$HOME/.dotfile" ]; then
+    log_pass "Dotfile directory exists: ~/.dotfile"
+
+    # Test if it's a bare repository
+    if git --git-dir="$HOME/.dotfile" rev-parse --is-bare-repository >/dev/null 2>&1; then
+        log_pass "Dotfile is a bare repository"
+    else
+        log_fail "Dotfile is not a bare repository"
+    fi
+else
+    log_fail "Dotfile directory not found: ~/.dotfile"
+fi
+
+# Check if dot alias is defined in shell configs
+DOT_ALIAS_FOUND=false
+
+# Check bash config
+if [ -f "$HOME/.bashrc" ]; then
+    if grep -q "alias dot='git --git-dir=" "$HOME/.bashrc" 2>/dev/null; then
+        log_pass "dot alias found in ~/.bashrc"
+        DOT_ALIAS_FOUND=true
+    elif grep -q "alias dot=" "$HOME/.bashrc" 2>/dev/null; then
+        log_pass "dot alias found in ~/.bashrc"
+        DOT_ALIAS_FOUND=true
+    else
+        log_fail "dot alias not found in ~/.bashrc"
+    fi
+fi
+
+# Check zsh config
+if [ -f "$HOME/.zshrc" ]; then
+    if grep -q "alias dot='git --git-dir=" "$HOME/.zshrc" 2>/dev/null; then
+        log_pass "dot alias found in ~/.zshrc"
+        DOT_ALIAS_FOUND=true
+    elif grep -q "alias dot=" "$HOME/.zshrc" 2>/dev/null; then
+        log_pass "dot alias found in ~/.zshrc"
+        DOT_ALIAS_FOUND=true
+    fi
+fi
+
+# Test dot command functionality using git directly
+if [ -d "$HOME/.dotfile" ]; then
+    # Test git operations through dotfile
+    echo -ne "Testing dotfile status... "
+    if git --git-dir="$HOME/.dotfile" status >/dev/null 2>&1; then
+        log_pass "dotfile status works"
+    else
+        log_fail "dotfile status failed"
+    fi
+
+    # Test dotfile remote
+    echo -ne "Testing dotfile remote... "
+    if git --git-dir="$HOME/.dotfile" remote -v >/dev/null 2>&1; then
+        log_pass "dotfile remote configured"
+        # Show remote info
+        git --git-dir="$HOME/.dotfile" remote -v | head -1 | sed 's/^/    /'
+    else
+        log_skip "dotfile remote not configured"
+    fi
+
+    # Test dotfile branch
+    echo -ne "Testing dotfile branch... "
+    if git --git-dir="$HOME/.dotfile" branch >/dev/null 2>&1; then
+        log_pass "dotfile branch accessible"
+    else
+        log_skip "dotfile branch check failed"
+    fi
+fi
+
+echo ""
+
+# Test Vim
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log_info "Vim Tests"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+if command -v vim >/dev/null 2>&1; then
+    test_tool "Vim version" "vim --version"
+
+    # Test vim can start and exit
+    echo -ne "Testing Vim basic operation... "
+    if echo ":q" | vim -es > /tmp/vim-test.log 2>&1; then
+        log_pass "Vim basic operation"
+    else
+        log_fail "Vim basic operation"
+        cat /tmp/vim-test.log | head -5
+    fi
+else
+    log_skip "Vim not installed"
+fi
+
+echo ""
+
+# Test Zsh and Oh-My-Zsh
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log_info "Zsh Tests"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+if command -v zsh >/dev/null 2>&1; then
+    test_tool "Zsh version" "zsh --version"
+
+    # Test oh-my-zsh installation
+    if [ -d "$HOME/.oh-my-zsh" ]; then
+        log_pass "Oh-My-Zsh directory exists"
+
+        # Check oh-my-zsh installation script
+        if [ -f "$HOME/.oh-my-zsh/oh-my-zsh.sh" ]; then
+            log_pass "Oh-My-Zsh installation script found"
+        else
+            log_fail "Oh-My-Zsh installation script missing"
+        fi
+    else
+        log_skip "Oh-My-Zsh not installed"
+    fi
+
+    # Test zsh plugins
+    if [ -d "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" ]; then
+        log_pass "zsh-autosuggestions installed"
+        if [ -f "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh" ]; then
+            log_pass "zsh-autosuggestions plugin file found"
+        else
+            log_skip "zsh-autosuggestions plugin file not found"
+        fi
+    else
+        log_skip "zsh-autosuggestions not found"
+    fi
+
+    if [ -d "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting" ]; then
+        log_pass "zsh-syntax-highlighting installed"
+        if [ -f "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]; then
+            log_pass "zsh-syntax-highlighting plugin file found"
+        else
+            log_skip "zsh-syntax-highlighting plugin file not found"
+        fi
+    else
+        log_skip "zsh-syntax-highlighting not found"
+    fi
+else
+    log_skip "Zsh not installed"
+fi
+
+echo ""
+
+# Test Node.js and NPM
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log_info "Node.js Tests"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+if command -v node >/dev/null 2>&1; then
+    test_tool "Node version" "node --version"
+
+    # Test node can execute
+    echo -ne "Testing Node basic operation... "
+    if echo "console.log(1+1)" | node > /tmp/node-test.log 2>&1; then
+        log_pass "Node basic operation"
+    else
+        log_fail "Node basic operation"
+        cat /tmp/node-test.log | head -5
+    fi
+else
+    log_skip "Node not installed"
+fi
+
+if command -v npm >/dev/null 2>&1; then
+    test_tool "NPM version" "npm --version"
+else
+    log_skip "NPM not installed"
+fi
+
+echo ""
+
+# Test TPM (Tmux Plugin Manager)
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log_info "TPM Tests"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+if [ -d "$HOME/.tmux/plugins/tpm" ]; then
+    log_pass "TPM directory exists"
+
+    # Check tpm script
+    if [ -f "$HOME/.tmux/plugins/tpm/tpm" ]; then
+        log_pass "TPM script found"
+    else
+        log_skip "TPM script not found"
+    fi
+
+    # Check tpm plugins directory
+    if [ -d "$HOME/.tmux/plugins/tpm/.tmux/plugins" ]; then
+        log_pass "TPM plugins directory exists"
+    else
+        log_skip "TPM plugins directory not found"
+    fi
+else
+    log_skip "TPM not installed"
+fi
+
+echo ""
+
 # Test shell configurations
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 log_info "Shell Configuration Tests"
