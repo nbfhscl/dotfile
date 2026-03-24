@@ -1,0 +1,44 @@
+# Fast smoke test for install.sh on Arch Linux.
+# Validates shell switching to zsh and zoxide initialization only.
+
+services:
+  arch-smoke:
+    image: archlinux:latest
+    container_name: dotfile-smoke-arch
+    hostname: arch-smoke
+    network_mode: host
+    stdin_open: true
+    tty: true
+    environment:
+      - TERM=xterm-256color
+      - LOCAL_REPO_SRC=/workspace
+    volumes:
+      - ./docker/run-zsh-zoxide-smoke.sh:/usr/local/bin/run-zsh-zoxide-smoke.sh:ro
+      - ../:/workspace:ro
+    working_dir: /root
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+
+        cat > /etc/pacman.d/mirrorlist <<'EOF'
+        Server = https://mirrors.tuna.tsinghua.edu.cn/archlinux/$$repo/os/$$arch
+        Server = https://mirrors.ustc.edu.cn/archlinux/$$repo/os/$$arch
+        Server = https://mirrors.cernet.edu.cn/archlinux/$$repo/os/$$arch
+        EOF
+
+        sed -i 's/^#ParallelDownloads = .*/ParallelDownloads = 5/' /etc/pacman.conf
+
+        echo "==> Initializing Arch Linux keyring..."
+        rm -rf /etc/pacman.d/gnupg
+        pacman-key --init
+        pacman-key --populate archlinux
+
+        echo "==> Updating package database..."
+        pacman -Sy
+
+        echo "==> Installing base packages for smoke test..."
+        pacman -S --noconfirm --needed git curl bash sudo shadow neovim
+
+        exec /usr/local/bin/run-zsh-zoxide-smoke.sh

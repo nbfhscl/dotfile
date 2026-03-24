@@ -419,21 +419,23 @@ BASH_RC_EOF
 }
 
 install_shell_alias() {
-  local shell_rc
-  local shell_name
+  local alias_line="alias $ALIAS_NAME='git --git-dir=\$HOME/.dotfile/ --work-tree=\$HOME'"
+  local -a shell_rcs=()
 
-  shell_name="$(basename "${SHELL:-}")"
+  [ -f "$HOME/.bashrc" ] && shell_rcs+=("$HOME/.bashrc")
+  [ -f "$HOME/.zshrc" ] && shell_rcs+=("$HOME/.zshrc")
 
-  case "$shell_name" in
-    zsh) shell_rc="$HOME/.zshrc" ;;
-    bash) shell_rc="$HOME/.bashrc" ;;
-    *) shell_rc="$HOME/.profile" ;;
-  esac
-
-  if ! grep -q "alias $ALIAS_NAME=" "$shell_rc" 2>/dev/null; then
-    echo "alias $ALIAS_NAME='git --git-dir=\$HOME/.dotfile/ --work-tree=\$HOME'" >> "$shell_rc"
-    log "Added '$ALIAS_NAME' alias to $shell_rc"
+  if [ ${#shell_rcs[@]} -eq 0 ]; then
+    shell_rcs+=("$HOME/.profile")
   fi
+
+  local shell_rc
+  for shell_rc in "${shell_rcs[@]}"; do
+    if ! grep -q "alias $ALIAS_NAME=" "$shell_rc" 2>/dev/null; then
+      echo "$alias_line" >> "$shell_rc"
+      log "Added '$ALIAS_NAME' alias to $shell_rc"
+    fi
+  done
 }
 
 remove_shell_alias() {
@@ -564,6 +566,9 @@ install_zoxide_custom() {
     apt)
       curl -fsSL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash 2>/dev/null
       ;;
+    pacman)
+      install_package "zoxide" 2>/dev/null
+      ;;
     brew)
       brew install zoxide 2>/dev/null
       ;;
@@ -582,6 +587,9 @@ install_fzf_custom() {
 
   case "$pm" in
     apt)
+      install_package "fzf" 2>/dev/null
+      ;;
+    pacman)
       install_package "fzf" 2>/dev/null
       ;;
     brew)
@@ -762,6 +770,9 @@ install_nodejs_npm_custom() {
         install_package "nodejs"
       fi
       ;;
+    pacman)
+      install_package "nodejs" && install_package "npm"
+      ;;
     brew)
       brew install node 2>/dev/null
       ;;
@@ -824,17 +835,16 @@ run_post_install_tests() {
     test_command() {
       local name="$1"
       local command="$2"
-      ((total_tests++))
+      ((total_tests+=1))
 
       if eval "$command" >/dev/null 2>&1; then
         log "  ✓ $name"
-        ((passed_tests++))
-        return 0
+        ((passed_tests+=1))
       else
         warn "  ✗ $name"
-        ((failed_tests++))
-        return 1
+        ((failed_tests+=1))
       fi
+      return 0
     }
 
     # Test only config deployment
@@ -860,17 +870,16 @@ run_post_install_tests() {
   test_command() {
     local name="$1"
     local command="$2"
-    ((total_tests++))
+    ((total_tests+=1))
 
     if eval "$command" >/dev/null 2>&1; then
       log "  ✓ $name"
-      ((passed_tests++))
-      return 0
+      ((passed_tests+=1))
     else
       warn "  ✗ $name"
-      ((failed_tests++))
-      return 1
+      ((failed_tests+=1))
     fi
+    return 0
   }
 
   # Test 1: Core commands availability
@@ -917,7 +926,7 @@ run_post_install_tests() {
   # Test 6: Config files deployment
   log "Testing config files..."
   test_command "Zsh config deployed" "[ -f '$XDG_CONFIG_HOME/zsh/.zshrc' ] || [ -f '$HOME/.zshrc' ]"
-  test_command "Vim config deployed" "[ -f '$XDG_CONFIG_HOME/vim/vimrc' ] || [ -f '$HOME/.vimrc' ] || [ -d '$XDG_CONFIG_HOME/vim' ]"
+  test_command "Bash config deployed" "[ -f '$XDG_CONFIG_HOME/bash/.bashrc' ] || [ -f '$HOME/.bashrc' ]"
   test_command "Neovim config deployed" "[ -d '$XDG_CONFIG_HOME/nvim' ]"
   test_command "Tmux config deployed" "[ -f '$XDG_CONFIG_HOME/tmux/tmux.conf' ] || [ -f '$HOME/.tmux.conf' ]"
   echo ""
@@ -930,7 +939,7 @@ run_post_install_tests() {
   test_command "XDG_CACHE_HOME is set" "[ -n '$XDG_CACHE_HOME' ]"
 
   # Check for XDG-compliant config locations
-  test_command "Vim uses XDG (preferred)" "[ -d '$XDG_CONFIG_HOME/vim' ] || [ -L '$HOME/.vim' ]"
+  test_command "Bash uses XDG (preferred)" "[ -d '$XDG_CONFIG_HOME/bash' ] || grep -q 'bash/.bashrc' '$HOME/.bashrc' 2>/dev/null"
   test_command "Zsh uses XDG (preferred)" "[ -d '$XDG_CONFIG_HOME/zsh' ] || [ -L '$HOME/.zshrc' ]"
   test_command "Tmux uses XDG (preferred)" "[ -d '$XDG_CONFIG_HOME/tmux' ] || [ -L '$HOME/.tmux.conf' ]"
   echo ""
@@ -942,8 +951,8 @@ run_post_install_tests() {
     nvim_version="$(nvim --version | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
     if [ -n "$nvim_version" ]; then
       log "  ✓ Neovim version: $nvim_version"
-      ((total_tests++))
-      ((passed_tests++))
+      ((total_tests+=1))
+      ((passed_tests+=1))
     fi
   fi
   echo ""
@@ -951,7 +960,7 @@ run_post_install_tests() {
   # Test 8: Git operations (if dot alias works)
   log "Testing git operations..."
   if alias dot >/dev/null 2>&1 || command -v dot >/dev/null 2>&1; then
-    test_command "Dot status command" "git --git-dir='$DOT_DIR' status >/dev/null 2>&1"
+    test_command "Dot status command" "git --git-dir='$DOT_DIR' --work-tree='$HOME' status >/dev/null 2>&1"
     test_command "Dot remote configured" "git --git-dir='$DOT_DIR' remote -v | grep -q origin"
   else
     warn "  ⚠ Dot alias not available, skipping git tests"
@@ -1141,8 +1150,8 @@ run_update() {
 
   backup_conflicting_files
   deploy_dotfiles
-  install_shell_alias
   create_xdg_symlinks
+  install_shell_alias
   log "Dotfile update completed"
 }
 
@@ -1262,11 +1271,11 @@ run_installation() {
   init_dotfile_repo
   backup_conflicting_files
   deploy_dotfiles
-  install_shell_alias
 
   # Create XDG-compliant symlinks
   echo ""
   create_xdg_symlinks
+  install_shell_alias
 
   echo ""
   echo "=========================================="
@@ -1284,8 +1293,12 @@ run_installation() {
 
   # Run post-installation tests
   echo ""
-  run_post_install_tests
-  local test_result=$?
+  local test_result=0
+  if run_post_install_tests; then
+    test_result=0
+  else
+    test_result=$?
+  fi
 
   if [ $test_result -eq 0 ]; then
     log "All post-installation tests passed!"
@@ -1325,7 +1338,7 @@ run_installation() {
 
 switch_to_zsh() {
   # Check if we're already in zsh
-  if [ -n "$ZSH_VERSION" ]; then
+  if [ -n "${ZSH_VERSION:-}" ]; then
     log "Already using zsh, no need to switch"
     return 0
   fi
@@ -1338,7 +1351,7 @@ switch_to_zsh() {
 
   # Get zsh path
   local zsh_path
-  zsh_path="$(which zsh)"
+  zsh_path="$(command -v zsh)"
 
   # Check if zsh is in /etc/shells
   if ! grep -qx "$zsh_path" /etc/shells 2>/dev/null; then

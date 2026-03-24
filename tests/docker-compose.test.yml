@@ -14,17 +14,30 @@ services:
       - TERM=xterm-256color
       - DOT_DIR=/root/.dotfile
       - DRY_RUN=${DRY_RUN:-}
+      - LOCAL_REPO_SRC=/workspace
     volumes:
       # Mount the test script
-      - ./tests/docker/run-e2e-test.sh:/usr/local/bin/run-e2e-test.sh:ro
+      - ./docker/run-e2e-test.sh:/usr/local/bin/run-e2e-test.sh:ro
+      # Mount current repository so E2E validates local changes instead of GitHub HEAD
+      - ../:/workspace:ro
       # Preserve test results
-      - ./tests/results:/test-results
+      - ./results:/test-results
     working_dir: /root
     entrypoint:
       - /bin/bash
       - -c
       - |
         set -e
+
+        # Use mainland China mirrors to reduce package download latency in CN networks
+        cat > /etc/pacman.d/mirrorlist <<'EOF'
+        Server = https://mirrors.tuna.tsinghua.edu.cn/archlinux/$$repo/os/$$arch
+        Server = https://mirrors.ustc.edu.cn/archlinux/$$repo/os/$$arch
+        Server = https://mirrors.cernet.edu.cn/archlinux/$$repo/os/$$arch
+        Server = https://mirror.sjtu.edu.cn/archlinux/$$repo/os/$$arch
+        EOF
+
+        sed -i 's/^#ParallelDownloads = .*/ParallelDownloads = 5/' /etc/pacman.conf
 
         # Initialize Arch Linux keyring
         echo "==> Initializing Arch Linux keyring..."
@@ -38,7 +51,7 @@ services:
 
         # Install required packages
         echo "==> Installing required packages..."
-        pacman -S --noconfirm git curl bash sudo
+        pacman -S --noconfirm git curl bash sudo shadow neovim
 
         echo "==> Environment ready"
         echo "==> Bash: $$(bash --version | head -1)"

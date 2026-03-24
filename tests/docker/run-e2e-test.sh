@@ -88,6 +88,97 @@ verify_dir() {
     fi
 }
 
+clone_test_repo() {
+    TEST_REPO_DIR="/tmp/dotfile-test-clone"
+    rm -rf "$TEST_REPO_DIR"
+
+    if [[ -n "${LOCAL_REPO_SRC:-}" && -d "${LOCAL_REPO_SRC}/.git" ]]; then
+        log_info "Copying repository from mounted workspace: $LOCAL_REPO_SRC"
+        mkdir -p "$TEST_REPO_DIR"
+        if cp -a "$LOCAL_REPO_SRC/." "$TEST_REPO_DIR/" > /tmp/clone-output.log 2>&1; then
+            log_pass "Repository copied from local workspace"
+            return 0
+        fi
+        log_fail "Failed to copy repository from local workspace"
+        cat /tmp/clone-output.log
+        return 1
+    fi
+
+    export REPO_URL="${REPO_URL:-https://github.com/nbfhscl/dotfile.git}"
+    log_info "Cloning repository from remote: $REPO_URL"
+    if git clone --depth 1 "$REPO_URL" "$TEST_REPO_DIR" > /tmp/clone-output.log 2>&1; then
+        log_pass "Repository cloned successfully"
+        return 0
+    fi
+
+    log_fail "Failed to clone repository"
+    cat /tmp/clone-output.log
+    return 1
+}
+
+run_install_and_shell_validation() {
+    local zsh_path
+    local login_shell
+
+    echo ""
+    log_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log_info "TEST SUITE 10: INSTALL + ZSH LOGIN SHELL"
+    log_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    log_info "Test 10.1: Run install.sh install with AUTO_SWITCH_SHELL=1"
+    if AUTO_SWITCH_SHELL=1 bash "$TEST_REPO_DIR/install.sh" install > /tmp/install-output.log 2>&1; then
+        log_pass "install.sh install completed"
+    else
+        log_fail "install.sh install failed"
+        tail -40 /tmp/install-output.log
+        return 1
+    fi
+
+    zsh_path="$(command -v zsh || true)"
+    if [[ -z "$zsh_path" ]]; then
+        log_fail "zsh is not available after install"
+        return 1
+    fi
+
+    log_info "Test 10.2: Verify default login shell changed to zsh"
+    login_shell="$(getent passwd "$(id -un)" | cut -d: -f7)"
+    if [[ "$login_shell" == "$zsh_path" ]]; then
+        log_pass "Default login shell is zsh: $login_shell"
+    else
+        log_fail "Default login shell mismatch: expected $zsh_path, got ${login_shell:-<empty>}"
+        return 1
+    fi
+
+    log_info "Test 10.3: Verify zsh config and zoxide work in a fresh login shell"
+    mkdir -p /tmp/zoxide-e2e-target
+    if "$zsh_path" -lic '
+        command -v zsh >/dev/null 2>&1
+        command -v zoxide >/dev/null 2>&1
+        type z >/dev/null 2>&1
+        zoxide add /tmp/zoxide-e2e-target
+        z zoxide-e2e-target
+        [[ "$PWD" == "/tmp/zoxide-e2e-target" ]]
+    ' > /tmp/zsh-zoxide-output.log 2>&1; then
+        log_pass "Fresh login zsh session can run zoxide and z"
+    else
+        log_fail "Fresh login zsh session cannot run zoxide or z"
+        cat /tmp/zsh-zoxide-output.log | head -40
+        return 1
+    fi
+
+    log_info "Test 10.4: Verify key installed tools are available after install"
+    for tool in zsh zoxide fzf tmux nvim node npm; do
+        if command -v "$tool" >/dev/null 2>&1; then
+            log_pass "$tool is available after install"
+        else
+            log_fail "$tool is missing after install"
+        fi
+    done
+
+    return 0
+}
+
 # Main test suite
 main() {
     echo "╔══════════════════════════════════════════════════════════════════════════════╗"
@@ -127,7 +218,6 @@ main() {
     # Test 1.1: Remote install (pipe mode)
     log_info "Test 1.1: Remote installation via curl | bash"
     export DOT_DIR="/tmp/test-dotfile-$$"
-    export REPO_URL="${REPO_URL:-https://github.com/nbfhscl/dotfile.git}"
 
     # Clean up any existing test directory
     rm -rf "$DOT_DIR"
@@ -148,15 +238,9 @@ main() {
 
     # Test 2.1: Clone repository
     log_info "Test 2.1: Clone dotfile repository"
-    TEST_REPO_DIR="/tmp/dotfile-test-clone"
-    rm -rf "$TEST_REPO_DIR"
-
-    if git clone --depth 1 "$REPO_URL" "$TEST_REPO_DIR" > /tmp/clone-output.log 2>&1; then
-        log_pass "Repository cloned successfully"
+    if clone_test_repo; then
         cd "$TEST_REPO_DIR"
     else
-        log_fail "Failed to clone repository"
-        cat /tmp/clone-output.log
         exit 1
     fi
 
@@ -265,27 +349,20 @@ EOF
     log_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 
-    # Test 5.1: Valid actions should be accepted
+    # Test 5.1: Valid actions should be documented in help output.
     log_info "Test 5.1: Valid actions"
-    for action in install deploy update status verify package uninstall reinstall; do
-        # Try to execute the action with --help or -h
-        if bash "$TEST_REPO_DIR/install.sh" "$action" --help > /dev/null 2>&1; then
-            log_pass "Action '$action' is valid (--help)"
-        elif bash "$TEST_REPO_DIR/install.sh" "$action" -h > /dev/null 2>&1; then
-            log_pass "Action '$action' is valid (-h)"
-        elif [[ "$action" == "status" ]] || [[ "$action" == "verify" ]]; then
-            # status and verify don't require --help
-            log_pass "Action '$action' is valid (built-in)"
-        else
-            # Even if --help fails, the action might still be valid
-            # Check if the action is in the known actions list
-            if bash "$TEST_REPO_DIR/install.sh" "$action" 2>&1 | grep -q "Usage\|unknown action"; then
-                log_skip "Action '$action' might be invalid"
+    if bash "$TEST_REPO_DIR/install.sh" --help > /tmp/help-actions-output.log 2>&1; then
+        for action in install deploy update status verify package offline-deploy uninstall reinstall; do
+            if grep -Eq "^[[:space:]]*$action[[:space:]]" /tmp/help-actions-output.log; then
+                log_pass "Action '$action' is documented"
             else
-                log_pass "Action '$action' executed (no help available)"
+                log_fail "Action '$action' missing from help output"
             fi
-        fi
-    done
+        done
+    else
+        log_fail "Unable to read help output for action validation"
+        cat /tmp/help-actions-output.log | head -20
+    fi
 
     echo ""
     log_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -445,53 +522,7 @@ EOF
     fi
 
     echo ""
-    # =========================================================================
-    # TEST SUITE 10: TOOLS AVAILABILITY
-    # =========================================================================
-    log_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    log_info "TEST SUITE 10: TOOLS AVAILABILITY"
-    log_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo ""
-
-    # Test 10.1: Essential tools
-    echo "Test 10.1: Essential tools"
-    command -v git >/dev/null 2>&1 && log_pass "Git is installed" || log_fail "Git is not installed"
-    command -v nvim >/dev/null 2>&1 && log_pass "Neovim is installed" || log_skip "Neovim is not installed (SKIP_INSTALL=1)"
-    command -v vim >/dev/null 2>&1 && log_pass "Vim is installed" || log_skip "Vim is not installed"
-
-    # Test 10.2: Modern CLI tools
-    echo ""
-    echo "Test 10.2: Modern CLI tools"
-    command -v rg >/dev/null 2>&1 && log_pass "ripgrep is installed" || log_skip "ripgrep is not installed (SKIP_INSTALL=1)"
-    command -v fzf >/dev/null 2>&1 && log_pass "fzf is installed" || log_skip "fzf is not installed (SKIP_INSTALL=1)"
-    command -v bat >/dev/null 2>&1 && log_pass "bat is installed" || log_skip "bat is not installed (SKIP_INSTALL=1)"
-    command -v fd >/dev/null 2>&1 && log_pass "fd is installed" || log_skip "fd is not installed (SKIP_INSTALL=1)"
-
-    # Test 10.3: Enhanced ls tools
-    echo ""
-    echo "Test 10.3: Enhanced ls tools"
-    command -v eza >/dev/null 2>&1 && log_pass "eza is installed" || \
-    command -v exa >/dev/null 2>&1 && log_pass "exa is installed" || \
-    log_skip "eza/exa not installed (SKIP_INSTALL=1)"
-
-    # Test 10.4: Directory navigation
-    echo ""
-    echo "Test 10.4: Directory navigation tools"
-    command -v zoxide >/dev/null 2>&1 && log_pass "zoxide is installed" || \
-    command -v z >/dev/null 2>&1 && log_pass "zoxide (z) is installed" || \
-    log_skip "zoxide not installed (SKIP_INSTALL=1)"
-
-    # Test 10.5: Terminal multiplexer
-    echo ""
-    echo "Test 10.5: Terminal multiplexer"
-    command -v tmux >/dev/null 2>&1 && log_pass "tmux is installed" || log_skip "tmux is not installed (SKIP_INSTALL=1)"
-
-    # Test 10.6: Tool configurations
-    echo ""
-    echo "Test 10.6: Tool configurations"
-    [ -f "$HOME/.config/nvim/init.vim" ] && log_pass "Neovim config exists" || log_skip "Neovim config not found"
-    [ -f "$XDG_CONFIG_HOME/tmux/tmux.conf" ] || [ -f "$HOME/.tmux.conf" ] && log_pass "Tmux config exists" || log_skip "Tmux config not found"
-    [ -f "$HOME/.config/bash/fzf.bash" ] && log_pass "fzf bash integration exists" || log_skip "fzf bash integration not found"
+    run_install_and_shell_validation
 
     echo ""
     echo "╔══════════════════════════════════════════════════════════════════════════════╗"

@@ -1,0 +1,44 @@
+# Full installed-content E2E for Arch Linux.
+# Runs install.sh install, validates all installed tools/configs, then checks zsh switch.
+
+services:
+  arch-installed-content:
+    image: archlinux:latest
+    container_name: dotfile-installed-content-arch
+    hostname: arch-installed-content
+    network_mode: host
+    stdin_open: true
+    tty: true
+    environment:
+      - TERM=xterm-256color
+      - LOCAL_REPO_SRC=/workspace
+    volumes:
+      - ./docker/run-installed-content-e2e.sh:/usr/local/bin/run-installed-content-e2e.sh:ro
+      - ../:/workspace:ro
+    working_dir: /root
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+
+        cat > /etc/pacman.d/mirrorlist <<'EOF'
+        Server = https://mirrors.tuna.tsinghua.edu.cn/archlinux/$$repo/os/$$arch
+        Server = https://mirrors.ustc.edu.cn/archlinux/$$repo/os/$$arch
+        Server = https://mirrors.cernet.edu.cn/archlinux/$$repo/os/$$arch
+        EOF
+
+        sed -i 's/^#ParallelDownloads = .*/ParallelDownloads = 5/' /etc/pacman.conf
+
+        echo "==> Initializing Arch Linux keyring..."
+        rm -rf /etc/pacman.d/gnupg
+        pacman-key --init
+        pacman-key --populate archlinux
+
+        echo "==> Updating package database..."
+        pacman -Sy
+
+        echo "==> Installing base packages for installed-content E2E..."
+        pacman -S --noconfirm --needed git curl bash sudo shadow neovim
+
+        exec /usr/local/bin/run-installed-content-e2e.sh
