@@ -286,7 +286,9 @@ migrate_to_xdg() {
     local zsh_xdg_dir="$XDG_CONFIG_HOME/zsh"
     mkdir -p "$zsh_xdg_dir"
     mv "$HOME/.zshrc" "$zsh_xdg_dir/.zshrc"
-    ln -s "$zsh_xdg_dir/.zshrc" "$HOME/.zshrc"
+    # Create new .zshrc that sources XDG config
+    echo "# Dotfile XDG configuration" > "$HOME/.zshrc"
+    echo "source \"$zsh_xdg_dir/.zshrc\"" >> "$HOME/.zshrc"
     log "Migrated ~/.zshrc to $zsh_xdg_dir/.zshrc"
   fi
 
@@ -295,7 +297,9 @@ migrate_to_xdg() {
     local bash_xdg_dir="$XDG_CONFIG_HOME/bash"
     mkdir -p "$bash_xdg_dir"
     mv "$HOME/.bashrc" "$bash_xdg_dir/.bashrc"
-    ln -s "$bash_xdg_dir/.bashrc" "$HOME/.bashrc"
+    # Create new .bashrc that sources XDG config
+    echo "# Dotfile XDG configuration" > "$HOME/.bashrc"
+    echo "source \"$bash_xdg_dir/.bashrc\"" >> "$HOME/.bashrc"
     log "Migrated ~/.bashrc to $bash_xdg_dir/.bashrc"
   fi
 
@@ -313,9 +317,9 @@ migrate_to_xdg() {
 
 # Create XDG-compliant symlinks for backward compatibility
 create_xdg_symlinks() {
-  info "Creating XDG-compliant symlinks..."
+  info "Creating XDG-compliant symlinks and shell configs..."
 
-  # Vim
+  # Vim - use symlinks for vim
   if [[ -d "$XDG_CONFIG_HOME/vim" && ! -e "$HOME/.vim" ]]; then
     ln -s "$XDG_CONFIG_HOME/vim" "$HOME/.vim"
     log "Created symlink: ~/.vim -> $XDG_CONFIG_HOME/vim"
@@ -324,19 +328,49 @@ create_xdg_symlinks() {
     log "Created symlink: ~/.vimrc -> $XDG_CONFIG_HOME/vim/vimrc"
   fi
 
-  # Zsh
-  if [[ -f "$XDG_CONFIG_HOME/zsh/.zshrc" && ! -e "$HOME/.zshrc" ]]; then
-    ln -s "$XDG_CONFIG_HOME/zsh/.zshrc" "$HOME/.zshrc"
-    log "Created symlink: ~/.zshrc -> $XDG_CONFIG_HOME/zsh/.zshrc"
+  # Zsh - source XDG config
+  if [[ -f "$XDG_CONFIG_HOME/zsh/.zshrc" ]]; then
+    local zsh_rc="$HOME/.zshrc"
+    local xdg_source="source \"$XDG_CONFIG_HOME/zsh/.zshrc\""
+
+    if [[ ! -f "$zsh_rc" ]]; then
+      # Create new .zshrc with XDG config sourced
+      echo "# Dotfile XDG configuration" > "$zsh_rc"
+      echo "$xdg_source" >> "$zsh_rc"
+      log "Created ~/.zshrc with XDG config sourced"
+    elif ! grep -q "zsh/.zshrc" "$zsh_rc" 2>/dev/null; then
+      # Append XDG source to existing .zshrc
+      echo "" >> "$zsh_rc"
+      echo "# Dotfile XDG configuration" >> "$zsh_rc"
+      echo "$xdg_source" >> "$zsh_rc"
+      log "Appended XDG config source to ~/.zshrc"
+    else
+      log "XDG config already sourced in ~/.zshrc"
+    fi
   fi
 
-  # Bash
-  if [[ -f "$XDG_CONFIG_HOME/bash/.bashrc" && ! -e "$HOME/.bashrc" ]]; then
-    ln -s "$XDG_CONFIG_HOME/bash/.bashrc" "$HOME/.bashrc"
-    log "Created symlink: ~/.bashrc -> $XDG_CONFIG_HOME/bash/.bashrc"
+  # Bash - source XDG config
+  if [[ -f "$XDG_CONFIG_HOME/bash/.bashrc" ]]; then
+    local bash_rc="$HOME/.bashrc"
+    local xdg_source="source \"$XDG_CONFIG_HOME/bash/.bashrc\""
+
+    if [[ ! -f "$bash_rc" ]]; then
+      # Create new .bashrc with XDG config sourced
+      echo "# Dotfile XDG configuration" > "$bash_rc"
+      echo "$xdg_source" >> "$bash_rc"
+      log "Created ~/.bashrc with XDG config sourced"
+    elif ! grep -q "bash/.bashrc" "$bash_rc" 2>/dev/null; then
+      # Append XDG source to existing .bashrc
+      echo "" >> "$bash_rc"
+      echo "# Dotfile XDG configuration" >> "$bash_rc"
+      echo "$xdg_source" >> "$bash_rc"
+      log "Appended XDG config source to ~/.bashrc"
+    else
+      log "XDG config already sourced in ~/.bashrc"
+    fi
   fi
 
-  # Tmux
+  # Tmux - use symlink
   if [[ -f "$XDG_CONFIG_HOME/tmux/tmux.conf" && ! -e "$HOME/.tmux.conf" ]]; then
     ln -s "$XDG_CONFIG_HOME/tmux/tmux.conf" "$HOME/.tmux.conf"
     log "Created symlink: ~/.tmux.conf -> $XDG_CONFIG_HOME/tmux/tmux.conf"
