@@ -9,11 +9,12 @@
 #   bash install.sh [install|deploy|update|status|verify|package|offline-deploy|uninstall|reinstall]
 #
 # Environment variables for install:
-#   DRY_RUN=1       - Preview operations without executing
-#   SKIP_INSTALL=1  - Deploy dotfiles only, skip tool installation
+#   DRY_RUN=1           - Preview operations without executing
+#   SKIP_INSTALL=1      - Deploy dotfiles only, skip tool installation
+#   AUTO_SWITCH_SHELL=1 - Automatically switch default shell to zsh
 #
 # Environment variables for uninstall:
-#   NO_BACKUP=1     - Skip creating backup before removal
+#   NO_BACKUP=1         - Skip creating backup before removal
 
 # ============================================================================
 # REMOTE EXECUTION HANDLER
@@ -92,6 +93,7 @@ BACKUP_DIR=""
 DRY_RUN="${DRY_RUN:-}"
 SKIP_INSTALL="${SKIP_INSTALL:-}"
 NO_BACKUP="${NO_BACKUP:-}"
+AUTO_SWITCH_SHELL="${AUTO_SWITCH_SHELL:-}"
 ACTION=""
 
 # Colors
@@ -1291,10 +1293,20 @@ run_installation() {
     warn "Some post-installation tests failed. Please review the output above."
   fi
 
+  # Auto-switch to zsh if requested
+  echo ""
+  if [ -n "$AUTO_SWITCH_SHELL" ]; then
+    log "Auto-switching to zsh (AUTO_SWITCH_SHELL=1)..."
+    switch_to_zsh
+  else
+    log "To switch to zsh automatically, set AUTO_SWITCH_SHELL=1"
+  fi
+
   echo ""
   log "Next steps:"
   echo "  1. Run 'source ~/.zshrc' or restart shell"
   echo "  2. Change default shell: chsh -s \$(which zsh)"
+  echo "     Or set AUTO_SWITCH_SHELL=1 bash install.sh install"
   echo "  3. Install tmux plugins: Press 'Ctrl+a I' in tmux"
   echo "  4. Open nvim to install plugins automatically"
   echo ""
@@ -1305,6 +1317,69 @@ run_installation() {
 
   # Return the test result (0 = all tests passed, non-zero = some tests failed)
   return $test_result
+}
+
+# ============================================================================
+# SHELL SWITCHING
+# ============================================================================
+
+switch_to_zsh() {
+  # Check if we're already in zsh
+  if [ -n "$ZSH_VERSION" ]; then
+    log "Already using zsh, no need to switch"
+    return 0
+  fi
+
+  # Check if zsh is installed
+  if ! command -v zsh >/dev/null 2>&1; then
+    warn "Zsh is not installed, skipping shell switch"
+    return 1
+  fi
+
+  # Get zsh path
+  local zsh_path
+  zsh_path="$(which zsh)"
+
+  # Check if zsh is in /etc/shells
+  if ! grep -qx "$zsh_path" /etc/shells 2>/dev/null; then
+    log "Adding zsh to /etc/shells..."
+    if [ -w /etc/shells ]; then
+      echo "$zsh_path" | sudo tee -a /etc/shells >/dev/null
+      log "Added $zsh_path to /etc/shells"
+    else
+      warn "Cannot write to /etc/shells, please run: echo '$zsh_path' | sudo tee -a /etc/shells"
+      warn "Then run: chsh -s $zsh_path"
+      return 1
+    fi
+  fi
+
+  # Check current shell
+  local current_shell
+  current_shell="$(basename "$SHELL")"
+
+  if [ "$current_shell" = "zsh" ]; then
+    log "Default shell is already zsh"
+    return 0
+  fi
+
+  # Switch shell
+  log "Switching default shell to zsh..."
+  if [ -n "$DRY_RUN" ]; then
+    info "[DRY-RUN] Would change default shell to zsh: chsh -s $zsh_path"
+  else
+    # Attempt to switch shell
+    if chsh -s "$zsh_path" 2>/dev/null; then
+      log "✓ Default shell changed to zsh"
+      log ""
+      log "Please log out and log back in for the change to take effect"
+      log "Or run 'zsh' to start a zsh session immediately"
+    else
+      warn "Failed to change default shell"
+      warn "Please run manually: chsh -s $zsh_path"
+    fi
+  fi
+
+  return 0
 }
 
 # ============================================================================
