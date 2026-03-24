@@ -334,14 +334,29 @@ create_xdg_symlinks() {
     local xdg_source="source \"$XDG_CONFIG_HOME/zsh/.zshrc\""
 
     if [[ ! -f "$zsh_rc" ]]; then
-      # Create new .zshrc with XDG config sourced
-      echo "# Dotfile XDG configuration" > "$zsh_rc"
+      # Create new .zshrc with XDG config sourced and shell detection
+      cat > "$zsh_rc" << 'ZSH_RC_EOF'
+# Dotfile XDG configuration
+# Shell detection to prevent loading in incompatible shells
+if [ -z "$ZSH_VERSION" ]; then
+  echo "Warning: ~/.zshrc should be sourced in zsh, not ${0##*/}" >&2
+  echo "If you want to use bash configuration, run: source ~/.bashrc" >&2
+  return 1
+fi
+
+ZSH_RC_EOF
       echo "$xdg_source" >> "$zsh_rc"
       log "Created ~/.zshrc with XDG config sourced"
     elif ! grep -q "zsh/.zshrc" "$zsh_rc" 2>/dev/null; then
       # Append XDG source to existing .zshrc
       echo "" >> "$zsh_rc"
       echo "# Dotfile XDG configuration" >> "$zsh_rc"
+      echo "# Shell detection to prevent loading in incompatible shells" >> "$zsh_rc"
+      echo "if [ -z \"\$ZSH_VERSION\" ]; then" >> "$zsh_rc"
+      echo "  echo \"Warning: ~/.zshrc should be sourced in zsh, not \${0##*/}\" >&2" >> "$zsh_rc"
+      echo "  return 1" >> "$zsh_rc"
+      echo "fi" >> "$zsh_rc"
+      echo "" >> "$zsh_rc"
       echo "$xdg_source" >> "$zsh_rc"
       log "Appended XDG config source to ~/.zshrc"
     else
@@ -355,14 +370,29 @@ create_xdg_symlinks() {
     local xdg_source="source \"$XDG_CONFIG_HOME/bash/.bashrc\""
 
     if [[ ! -f "$bash_rc" ]]; then
-      # Create new .bashrc with XDG config sourced
-      echo "# Dotfile XDG configuration" > "$bash_rc"
+      # Create new .bashrc with XDG config sourced and shell detection
+      cat > "$bash_rc" << 'BASH_RC_EOF'
+# Dotfile XDG configuration
+# Shell detection to prevent loading in incompatible shells
+if [ -z "$BASH_VERSION" ]; then
+  echo "Warning: ~/.bashrc should be sourced in bash, not ${0##*/}" >&2
+  echo "If you want to use zsh configuration, run: source ~/.zshrc" >&2
+  return 1
+fi
+
+BASH_RC_EOF
       echo "$xdg_source" >> "$bash_rc"
       log "Created ~/.bashrc with XDG config sourced"
     elif ! grep -q "bash/.bashrc" "$bash_rc" 2>/dev/null; then
       # Append XDG source to existing .bashrc
       echo "" >> "$bash_rc"
       echo "# Dotfile XDG configuration" >> "$bash_rc"
+      echo "# Shell detection to prevent loading in incompatible shells" >> "$bash_rc"
+      echo "if [ -z \"\$BASH_VERSION\" ]; then" >> "$bash_rc"
+      echo "  echo \"Warning: ~/.bashrc should be sourced in bash, not \${0##*/}\" >&2" >> "$bash_rc"
+      echo "  return 1" >> "$bash_rc"
+      echo "fi" >> "$bash_rc"
+      echo "" >> "$bash_rc"
       echo "$xdg_source" >> "$bash_rc"
       log "Appended XDG config source to ~/.bashrc"
     else
