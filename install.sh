@@ -526,7 +526,8 @@ install_tool() {
 install_oh_my_zsh_custom() {
   [ ! -d "$HOME/.oh-my-zsh" ] || return 0
 
-  if sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended 2>/dev/null; then
+  # KEEP_ZSHRC=yes prevents oh-my-zsh from overwriting ~/.zshrc
+  if KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended 2>/dev/null; then
     return 0
   fi
   return 1
