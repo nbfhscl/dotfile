@@ -2,9 +2,10 @@ EDITOR=vim
 export EDITOR
 
 # Oh-My-Zsh configuration
+ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
 plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
-source $ZSH/oh-my-zsh.sh
+source "$ZSH/oh-my-zsh.sh"
 
 eval "$(zoxide init zsh)"
 source <(fzf --zsh)
