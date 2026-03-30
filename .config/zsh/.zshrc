@@ -44,3 +44,5 @@ claude() {
 claude2() {
   _claude_with_profile "$HOME/.claude2" "$@"
 }
+
+alias py='python3'

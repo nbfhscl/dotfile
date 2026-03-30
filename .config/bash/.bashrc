@@ -42,3 +42,4 @@ shopt -s histappend
 source ~/.config/bash/fzf.bash
 
 alias tmux='tmux -f ~/.config/tmux/tmux.conf'
+alias py='python3'
