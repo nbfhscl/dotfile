@@ -7,6 +7,12 @@
 !.*/                    # 所有 .xxx 目录（如 .vim/, .config/）
 !.config/**/*           # .config 下所有文件
 !.vim/**/*              # .vim 下所有文件
+!docs/
+!docs/**/*
+!scripts/
+!scripts/**/*
+!tests/
+!tests/**/*
 !AGENTS.md
 !CLAUDE.md
 
@@ -54,3 +60,6 @@
 # 备份目录（由 install.sh 生成）
 .dotfiles_backup_*/
 .backup/
+
+# 测试产物
+tests/results/
