@@ -3,7 +3,7 @@
 ## 测试概览
 
 **测试环境：** Docker 容器 archlinux:latest  
-**测试脚本：** tests/docker/test-all-commands.sh  
+**测试脚本：** tests/e2e/test-all-commands.sh  
 **测试套件：** 13 个测试套件，覆盖所有 install.sh 命令
 
 ---
@@ -304,5 +304,5 @@ TEST SUITE 8-13 (功能测试)
 ## 相关文档
 
 - `TEST-CLARIFICATION.md` - Shell 配置测试澄清
-- `tests/docker/test-all-commands.sh` - 测试脚本
-- `tests/docker-compose.test-all-commands.yml` - Docker 配置
+- `tests/e2e/test-all-commands.sh` - 测试脚本
+- `tests/compose/docker-compose.test-all-commands.yml` - Docker 配置

@@ -3,8 +3,8 @@
 ## 开发流程规范
 
 - **每次较大修改必须通过 E2E 测试验证**
-  - 使用 Docker 容器进行端到端测试：`docker-compose -f tests/docker-compose.test.yml up --abort-on-container-exit`
-  - 测试脚本位于 `tests/docker/run-e2e-test.sh`
+  - 使用 Docker 容器进行端到端测试：`docker-compose -f tests/compose/docker-compose.test.yml up --abort-on-container-exit`
+  - 测试脚本位于 `tests/e2e/run-e2e-test.sh`
   - 只有在所有测试通过后才能合并代码
 
 - **保持文档一致性**

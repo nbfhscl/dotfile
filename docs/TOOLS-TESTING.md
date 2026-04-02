@@ -73,7 +73,7 @@ fzf --version
 
 ### test-all-commands.sh
 
-**位置:** `tests/docker/test-all-commands.sh`
+**位置:** `tests/e2e/test-all-commands.sh`
 
 **TEST SUITE 14: TOOLS VERIFICATION**
 
@@ -84,13 +84,13 @@ fzf --version
 
 ### test-tools-functionality.sh
 
-**位置:** `tests/docker/test-tools-functionality.sh`
+**位置:** `tests/e2e/test-tools-functionality.sh`
 
 专门的工具功能测试脚本：
 
 ```bash
 # 运行工具功能测试
-bash tests/docker/test-tools-functionality.sh
+bash tests/e2e/test-tools-functionality.sh
 ```
 
 **测试套件：**
@@ -107,7 +107,7 @@ bash tests/docker/test-tools-functionality.sh
 
 ### run-e2e-test.sh
 
-**位置:** `tests/docker/run-e2e-test.sh`
+**位置:** `tests/e2e/run-e2e-test.sh`
 
 **TEST SUITE 10: TOOLS AVAILABILITY**
 
@@ -130,7 +130,7 @@ pacman -S --noconfirm --needed \
 
 ```bash
 # 完整命令测试（包含工具测试）
-docker-compose -f tests/docker-compose.test-all-commands.yml \
+docker-compose -f tests/compose/docker-compose.test-all-commands.yml \
   up --abort-on-container-exit
 
 # 仅工具功能测试
@@ -342,7 +342,7 @@ z .             # 跳转到常用目录
 
 2. **使用工具测试验证**
    ```bash
-   bash tests/docker/test-tools-functionality.sh
+   bash tests/e2e/test-tools-functionality.sh
    ```
 
 3. **检查工具版本兼容性**

@@ -1,5 +1,5 @@
 # Docker Compose for Dotfile End-to-End Testing
-# Usage: docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+# Usage: docker-compose -f tests/compose/docker-compose.test.yml up --abort-on-container-exit
 
 services:
   arch-test:
@@ -16,12 +16,9 @@ services:
       - DRY_RUN=${DRY_RUN:-}
       - LOCAL_REPO_SRC=/workspace
     volumes:
-      # Mount the test script
-      - ./docker/run-e2e-test.sh:/usr/local/bin/run-e2e-test.sh:ro
-      # Mount current repository so E2E validates local changes instead of GitHub HEAD
-      - ../:/workspace:ro
-      # Preserve test results
-      - ./results:/test-results
+      - ../e2e/run-e2e-test.sh:/usr/local/bin/run-e2e-test.sh:ro
+      - ../../:/workspace:ro
+      - ../results:/test-results
     working_dir: /root
     entrypoint:
       - /bin/bash
@@ -29,7 +26,6 @@ services:
       - |
         set -e
 
-        # Use mainland China mirrors to reduce package download latency in CN networks
         cat > /etc/pacman.d/mirrorlist <<'EOF'
         Server = https://mirrors.tuna.tsinghua.edu.cn/archlinux/$$repo/os/$$arch
         Server = https://mirrors.ustc.edu.cn/archlinux/$$repo/os/$$arch
@@ -39,17 +35,14 @@ services:
 
         sed -i 's/^#ParallelDownloads = .*/ParallelDownloads = 5/' /etc/pacman.conf
 
-        # Initialize Arch Linux keyring
         echo "==> Initializing Arch Linux keyring..."
         rm -rf /etc/pacman.d/gnupg
         pacman-key --init
         pacman-key --populate archlinux
 
-        # Update package database
         echo "==> Updating package database..."
         pacman -Sy
 
-        # Install required packages
         echo "==> Installing required packages..."
         pacman -S --noconfirm git curl bash sudo shadow neovim
 
@@ -59,7 +52,6 @@ services:
         echo "==> Curl: $$(curl --version | head -1)"
         echo ""
 
-        # Run the test script
         if [ -f /usr/local/bin/run-e2e-test.sh ]; then
           echo "==> Starting dotfile test..."
           exec /usr/local/bin/run-e2e-test.sh

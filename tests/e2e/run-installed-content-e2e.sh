@@ -42,7 +42,7 @@ main() {
     log_pass "install.sh install completed"
 
     log_info "Running installed-content functionality suite"
-    bash "$TEST_REPO_DIR/tests/docker/test-tools-functionality.sh" || {
+    bash "$TEST_REPO_DIR/tests/e2e/test-tools-functionality.sh" || {
         log_fail "installed-content functionality suite failed"
         exit 1
     }

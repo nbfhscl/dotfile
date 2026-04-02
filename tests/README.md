@@ -13,16 +13,16 @@
 
 ```bash
 # 运行完整测试套件（从项目根目录）
-docker-compose -f tests/docker-compose.test.yml up --abort-on-container-exit
+docker-compose -f tests/compose/docker-compose.test.yml up --abort-on-container-exit
 
 # 后台运行
-docker-compose -f tests/docker-compose.test.yml up -d
+docker-compose -f tests/compose/docker-compose.test.yml up -d
 
 # 查看日志
-docker-compose -f tests/docker-compose.test.yml logs -f
+docker-compose -f tests/compose/docker-compose.test.yml logs -f
 
 # 清理
-docker-compose -f tests/docker-compose.test.yml down
+docker-compose -f tests/compose/docker-compose.test.yml down
 ```
 
 ## 测试套件
@@ -73,7 +73,7 @@ tests/results/
 
 ```bash
 # 启动容器并保持运行
-docker-compose -f tests/docker-compose.test.yml run --rm arch-test /bin/bash
+docker-compose -f tests/compose/docker-compose.test.yml run --rm arch-test /bin/bash
 
 # 在容器内手动测试
 curl -fsSL https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/install.sh | bash
@@ -88,7 +88,7 @@ curl -fsSL https://raw.githubusercontent.com/nbfhscl/dotfile/refs/heads/master/i
 
 ```bash
 # 停止并删除容器
-docker-compose -f tests/docker-compose.test.yml down
+docker-compose -f tests/compose/docker-compose.test.yml down
 
 # 删除测试结果
 rm -rf tests/results/
@@ -100,16 +100,16 @@ rm -rf tests/results/
 
 ```bash
 # 运行全面命令测试（从项目根目录）
-docker-compose -f tests/docker-compose.test-all-commands.yml up --abort-on-container-exit
+docker-compose -f tests/compose/docker-compose.test-all-commands.yml up --abort-on-container-exit
 
 # 后台运行
-docker-compose -f tests/docker-compose.test-all-commands.yml up -d
+docker-compose -f tests/compose/docker-compose.test-all-commands.yml up -d
 
 # 查看日志
-docker-compose -f tests/docker-compose.test-all-commands.yml logs -f
+docker-compose -f tests/compose/docker-compose.test-all-commands.yml logs -f
 
 # 清理
-docker-compose -f tests/docker-compose.test-all-commands.yml down
+docker-compose -f tests/compose/docker-compose.test-all-commands.yml down
 ```
 
 ### 测试套件详情
