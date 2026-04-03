@@ -130,11 +130,12 @@
 
 | 测试用例 | 命令 | 预期结果 | 状态 |
 |---------|------|----------|------|
-| 8.1 | `bash install.sh package` | 创建离线包 | ❌ |
+| 8.1 | `bash install.sh package` | 创建离线包 | ✅ |
 
-**问题：**
-- 脚本 `scripts/offline-export.sh` 不存在
-- 测试预期失败
+**当前行为：**
+- `install.sh package` 调用 `scripts/offline-export.sh`
+- 产物位于 `scripts/dist/dotfiles-offline-<version>.sh`
+- E2E 现已验证该流程可用
 
 ---
 
@@ -144,11 +145,11 @@
 
 | 测试用例 | 命令 | 前提条件 | 状态 |
 |---------|------|----------|------|
-| 9.1 | `bash install.sh offline-deploy <dir>` | 需要有效的包目录 | ⏭️ |
+| 9.1 | `bash install.sh offline-deploy <bundle>` | 需要有效的离线包文件 | ✅ |
 
 **依赖关系：**
 - 依赖于 TEST SUITE 8 成功
-- 如果 package 失败，此测试跳过
+- 使用 TEST SUITE 8 生成的 `dotfiles-offline-*.sh`
 
 ---
 

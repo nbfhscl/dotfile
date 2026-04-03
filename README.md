@@ -76,7 +76,7 @@ DRY_RUN=1 bash install.sh install
 ### 非交互模式
 
 ```bash
-AUTO_YES=1 bash scripts/offline-export.sh
+AUTO_YES=1 bash install.sh package
 ```
 
 ## 目录结构
@@ -87,7 +87,9 @@ AUTO_YES=1 bash scripts/offline-export.sh
 ├── install.ps1          # Windows 主入口
 ├── scripts/
 │   ├── lib/             # 共享库
-│   └── offline-export.sh # 离线打包
+│   ├── offline-collect.sh
+│   ├── offline-package.sh
+│   └── offline-export.sh
 ├── .config/             # XDG 配置
 ├── .vim/                # 兼容项
 └── tests/               # 契约测试
@@ -95,9 +97,9 @@ AUTO_YES=1 bash scripts/offline-export.sh
 
 ## 详细文档
 
-- [完整指南](COMPLETE_GUIDE.md) - 在线/离线完整流程
-- [离线打包](scripts/OFFLINE.md) - 离线包生成与使用
-- [架构概览](OVERVIEW.md) - 设计与实现
+- [Scripts 说明](scripts/README.md) - Unix 辅助脚本与离线打包流程
+- [Docker 测试说明](docs/DOCKER-TEST-CLARIFICATION.md) - E2E 测试范围与结果说明
+- [工具测试说明](docs/TOOLS-TESTING.md) - 安装后工具验证说明
 
 ## 验证
 

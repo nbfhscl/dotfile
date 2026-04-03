@@ -433,11 +433,11 @@ EOF
     # Test 8.3: verify helper scripts exist
     echo ""
     log_info "Test 8.3: Helper scripts verification"
-    for script in offline-collect.sh offline-package.sh export.sh; do
+    for script in offline-collect.sh offline-package.sh offline-export.sh; do
         if [ -f "$TEST_REPO_DIR/scripts/$script" ]; then
             log_pass "$script exists"
         else
-            log_skip "$script not found (might have been removed)"
+            log_fail "$script not found"
         fi
     done
 

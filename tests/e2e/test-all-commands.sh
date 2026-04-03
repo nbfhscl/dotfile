@@ -264,18 +264,19 @@ main() {
     log_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 
-    # Note: Package command requires offline-export.sh which is in .gitignore
-    # So the cloned repository won't have this script, causing expected failure
-    log_info "Testing package command (expected to fail - offline scripts in .gitignore)..."
-    if bash "$TEST_REPO_DIR/install.sh" package > /tmp/package-output.log 2>&1; then
+    log_info "Testing package command..."
+    if AUTO_YES=1 bash "$TEST_REPO_DIR/install.sh" package > /tmp/package-output.log 2>&1; then
         log_pass "Package command executed"
 
-        # Check if package directory was created
-        if [ -d "$HOME/.dotfile_package" ] || grep -q "Package created" /tmp/package-output.log; then
-            log_pass "Package directory created or indicated"
+        if find "$TEST_REPO_DIR/scripts/dist" -maxdepth 1 -type f -name 'dotfiles-offline-*.sh' | grep -q .; then
+            log_pass "Offline package created"
+        else
+            log_fail "Offline package not created"
+            cat /tmp/package-output.log | tail -20
         fi
     else
-        log_skip "Package command failed (offline scripts not in remote repository)"
+        log_fail "Package command failed"
+        cat /tmp/package-output.log | tail -20
     fi
 
     echo ""
@@ -287,14 +288,13 @@ main() {
     log_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 
-    # Find the package directory
-    PACKAGE_DIR=$(find "$HOME" -maxdepth 1 -type d -name ".dotfile_package*" 2>/dev/null | head -1)
+    PACKAGE_FILE=$(find "$TEST_REPO_DIR/scripts/dist" -maxdepth 1 -type f -name 'dotfiles-offline-*.sh' 2>/dev/null | head -1)
 
-    if [ -n "$PACKAGE_DIR" ]; then
-        log_info "Found package directory: $PACKAGE_DIR"
-        test_command "Offline-deploy command" "bash '$TEST_REPO_DIR/install.sh' offline-deploy '$PACKAGE_DIR'"
+    if [ -n "$PACKAGE_FILE" ]; then
+        log_info "Found package file: $PACKAGE_FILE"
+        test_command "Offline-deploy command" "bash '$TEST_REPO_DIR/install.sh' offline-deploy '$PACKAGE_FILE'"
     else
-        log_skip "Offline-deploy test skipped (no package directory found)"
+        log_skip "Offline-deploy test skipped (no package file found)"
     fi
 
     echo ""

@@ -1,4 +1,4 @@
-# Claude Repository Rules
+# Repository Agent Rules
 
 ## 开发流程规范
 
