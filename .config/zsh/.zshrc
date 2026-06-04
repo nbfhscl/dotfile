@@ -10,7 +10,6 @@ source "$ZSH/oh-my-zsh.sh"
 eval "$(zoxide init zsh)"
 source <(fzf --zsh)
 
-#bindkey -v
 source ~/.config/bash/fzf.bash
 
 # 接受 zsh-autosuggestions 的灰色建议
@@ -28,6 +27,14 @@ zle -N accept-suggestion
 
 # 绑定 Alt-f,实际上生效的是alt-l
 bindkey '^[f' accept-suggestion
+
+# Preferred editor for local and remote sessions
+if [[ -n $SSH_CONNECTION ]]; then
+  export EDITOR='vim'
+else
+  export EDITOR='vim'
+fi
+bindkey -v
 
 
 _claude_with_profile() {
