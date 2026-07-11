@@ -43,3 +43,10 @@ source ~/.config/bash/fzf.bash
 
 alias tmux='tmux -f ~/.config/tmux/tmux.conf'
 alias py='python3'
+
+# env.d
+if [[ -d "${HERE}/env.d" ]]; then
+  for f in "${HERE}/env.d"/*.sh; do
+    [[ -f "$f" ]] && source "$f"
+  done
+fi
